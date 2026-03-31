@@ -8,6 +8,7 @@
 ![Dashboard](https://img.shields.io/badge/Dashboard-Streamlit-ff4b4b?logo=streamlit)
 ![Docker](https://img.shields.io/badge/Deploy-Docker-2496ED?logo=docker)
 ![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)
+![Contributions](https://img.shields.io/badge/Contributions-Welcome-brightgreen)
 
 > A production-grade, explainable AI-powered Network Intrusion Detection System (NIDS) that detects DDoS, brute force, web attacks, and infiltration with SHAP-based per-alert explanations — bridging the gap between ML accuracy and SOC analyst trust.
 
@@ -15,7 +16,7 @@
 
 ## Why Explainability Matters
 
-Modern AI-based IDS platforms like Darktrace and Vectra detect threats accurately — but analysts often don't know *why* an alert fired. This project solves the **black-box problem** by applying SHAP (SHapley Additive exPlanations) to every prediction, giving analysts a ranked, human-readable explanation of the features that triggered each detection. This is the exact gap that real SOC teams in 2026 are trying to close.
+Modern AI-based IDS platforms like Darktrace and Vectra detect threats accurately — but analysts often don't know *why* an alert fired. This project solves the **black-box problem** by applying SHAP (SHapley Additive exPlanations) to every prediction, giving analysts a ranked, human-readable explanation of the features that triggered each detection. This is the exact gap that real SOC teams in 2026 are actively trying to close.
 
 ---
 
@@ -29,11 +30,11 @@ Modern AI-based IDS platforms like Darktrace and Vectra detect threats accuratel
 
 ### 2 · Model Comparison — ROC Curves & F1 Scores
 ![Model Comparison](docs/screenshots/screenshot2_model_comparison.png)
-*Side-by-side ROC curve comparison of Random Forest (AUC: 0.9991), XGBoost (AUC: 0.9987), and LSTM (AUC: 0.9943) on CICIDS-2017 test set. Confusion matrix heatmaps for each model displayed below. XGBoost achieves lowest false positive rate (0.003) while Random Forest leads on macro F1 (0.997).*
+*Side-by-side ROC curve comparison of Random Forest (AUC: 0.9991), XGBoost (AUC: 0.9987), and LSTM (AUC: 0.9943) on CICIDS-2017 test set. Confusion matrix heatmaps for each model displayed below. XGBoost achieves the lowest false positive rate (0.003) while Random Forest leads on macro F1 (0.997).*
 
 ### 3 · SHAP Summary Plot — Global Feature Importance
 ![SHAP Summary](docs/screenshots/screenshot3_shap_summary.png)
-*SHAP beeswarm plot showing global feature importance across 10,000 test samples. Top features: `Flow Duration`, `Bwd Packet Length Max`, `Flow Bytes/s`, `Fwd IAT Total`, and `Destination Port`. Each dot represents one sample — position on x-axis shows feature's impact on prediction, color maps to feature value magnitude.*
+*SHAP beeswarm plot showing global feature importance across 10,000 test samples. Top features: `Flow Duration`, `Bwd Packet Length Max`, `Flow Bytes/s`, `Fwd IAT Total`, and `Destination Port`. Each dot represents one sample — position on x-axis shows the feature's impact on prediction, color maps to feature value magnitude.*
 
 ### 4 · Attack Class Distribution — CICIDS-2017
 ![Dataset Distribution](docs/screenshots/screenshot4_dataset_distribution.png)
@@ -55,6 +56,8 @@ Modern AI-based IDS platforms like Darktrace and Vectra detect threats accuratel
 - [Quick Start](#quick-start)
 - [Docker Deployment](#docker-deployment)
 - [Research Paper](#research-paper)
+- [Contributing](#contributing)
+- [License](#license)
 - [Author](#author)
 
 ---
@@ -98,10 +101,10 @@ This project implements a full-lifecycle, explainable AI-based NIDS that replica
                              ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │                       ML DETECTION ENGINE                            │
-│  ┌──────────────────┐  ┌──────────────┐  ┌─────────────────────┐   │
-│  │  Random Forest   │  │   XGBoost    │  │  LSTM (Sequential)  │   │
-│  │  (Ensemble)      │  │  (Boosting)  │  │  (Temporal Patterns)│   │
-│  └──────────────────┘  └──────────────┘  └─────────────────────┘   │
+│  ┌──────────────────┐  ┌──────────────┐  ┌─────────────────────┐    │
+│  │  Random Forest   │  │   XGBoost    │  │  LSTM (Sequential)  │    │
+│  │  (Ensemble)      │  │  (Boosting)  │  │  (Temporal Patterns)│    │
+│  └──────────────────┘  └──────────────┘  └─────────────────────┘    │
 │              ↓ Majority Vote / Ensemble Stacking                     │
 │         Attack Label + Confidence Score                              │
 └────────────────────────────┬─────────────────────────────────────────┘
@@ -111,7 +114,7 @@ This project implements a full-lifecycle, explainable AI-based NIDS that replica
 │                    XAI EXPLAINABILITY LAYER                          │
 │  SHAP TreeExplainer (RF / XGBoost) | SHAP DeepExplainer (LSTM)      │
 │  → Per-Alert: Waterfall Chart (Top 10 Features)                      │
-│  → Global: Beeswarm Summary + Dependence Plots                       │
+│  → Global:    Beeswarm Summary + Dependence Plots                    │
 └────────────────────────────┬─────────────────────────────────────────┘
                              │ Explanation Object
                              ▼
@@ -393,12 +396,16 @@ xai-network-intrusion-detection/
 │   └── screenshots/            # Dashboard and output screenshots
 ├── paper/
 │   └── xai_ids_paper.pdf       # Research paper (IEEE format)
+├── tests/
+│   ├── test_preprocessing.py   # Unit tests for preprocessing pipeline
+│   ├── test_models.py          # Unit tests for model inference
+│   └── test_explainability.py  # Unit tests for SHAP explainer
 ├── Dockerfile                  # Streamlit app container
 ├── docker-compose.yml          # Multi-service orchestration
 ├── requirements.txt            # Python dependencies
 ├── .gitignore                  # Excludes raw data, model files, venv
-├── CONTRIBUTING.md
-├── LICENSE
+├── CONTRIBUTING.md             # Contribution guidelines
+├── LICENSE                     # MIT License
 └── README.md
 ```
 
@@ -456,9 +463,9 @@ streamlit run dashboard/app.py
 python src/preprocessing/cleaner.py --input data/raw/ --output data/processed/
 
 # Train all three models
-python src/models/random_forest.py --data data/processed/train.csv
-python src/models/xgboost_model.py --data data/processed/train.csv
-python src/models/lstm_model.py    --data data/processed/train.csv
+python src/models/random_forest.py  --data data/processed/train.csv
+python src/models/xgboost_model.py  --data data/processed/train.csv
+python src/models/lstm_model.py     --data data/processed/train.csv
 
 # Evaluate and compare
 python src/utils/metrics.py --models models/ --test data/processed/test.csv
@@ -511,6 +518,28 @@ The Docker image includes all pre-trained model artifacts and sample data for im
 **Abstract (draft):** This paper presents an explainable artificial intelligence (XAI) approach to network intrusion detection using the CICIDS-2017 benchmark dataset. Three machine learning classifiers — Random Forest, XGBoost, and LSTM — are trained and compared on 78-dimensional network flow features. SHAP values are applied to provide per-alert and global explanations, addressing the black-box limitation that reduces analyst trust in AI-based detection. The proposed system achieves a macro F1-score of 0.997 with a false positive rate below 0.3%, outperforming several baseline approaches from recent literature.
 
 Paper draft: [`paper/xai_ids_paper.pdf`](paper/xai_ids_paper.pdf) *(in progress)*
+
+---
+
+## Contributing
+
+Contributions are welcome — whether you are improving an ML model, adding a new attack class detector, enhancing the SHAP explainability layer, or fixing documentation.
+
+1. Fork the repository
+2. Create your feature branch: `git checkout -b feat/your-feature-name`
+3. Commit your changes: `git commit -m 'feat: add isolation forest model'`
+4. Push to the branch: `git push origin feat/your-feature-name`
+5. Open a Pull Request
+
+Please read the full **[CONTRIBUTING.md](CONTRIBUTING.md)** before submitting a PR — it covers model requirements checklist, code style standards, and issue labels.
+
+---
+
+## License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for full terms.
+
+> **Disclaimer:** This repository is intended solely for educational and defensive security research purposes. All ML models and detection techniques demonstrated herein should only be deployed in authorized environments. The author accepts no responsibility for misuse of any model, script, or technique contained in this repository.
 
 ---
 
