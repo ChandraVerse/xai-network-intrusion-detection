@@ -4,28 +4,28 @@ tests/test_models.py
 Smoke tests for model training and prediction interfaces.
 Uses tiny synthetic datasets — no CICIDS-2017 download required.
 """
+import os
+import sys
+
 import numpy as np
 import pytest
-import sys
-import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.models.random_forest import train_random_forest
 from src.models.xgboost_model import train_xgboost
 
-
-N_SAMPLES  = 300
+N_SAMPLES = 300
 N_FEATURES = 20
-N_CLASSES  = 5
-SEED       = 42
+N_CLASSES = 5
+SEED = 42
 
 
 @pytest.fixture(scope="module")
 def synthetic_data():
     rng = np.random.default_rng(SEED)
-    X   = rng.random((N_SAMPLES, N_FEATURES)).astype(np.float32)
-    y   = rng.integers(0, N_CLASSES, N_SAMPLES)
+    X = rng.random((N_SAMPLES, N_FEATURES)).astype(np.float32)
+    y = rng.integers(0, N_CLASSES, N_SAMPLES)
     split = int(0.8 * N_SAMPLES)
     return X[:split], y[:split], X[split:], y[split:]
 

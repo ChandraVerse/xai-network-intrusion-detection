@@ -3,28 +3,28 @@ tests/test_explainability.py
 -----------------------------
 Smoke tests for the SHAP explainability layer.
 """
+import os
+import sys
+
 import numpy as np
 import pytest
-import sys
-import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from src.models.random_forest import train_random_forest
 from src.explainability.shap_explainer import explain_tree
+from src.models.random_forest import train_random_forest
 
-
-N_SAMPLES  = 200
+N_SAMPLES = 200
 N_FEATURES = 15
-N_CLASSES  = 4
-SEED       = 7
+N_CLASSES = 4
+SEED = 7
 
 
 @pytest.fixture(scope="module")
 def fitted_rf():
     rng = np.random.default_rng(SEED)
-    X   = rng.random((N_SAMPLES, N_FEATURES)).astype(np.float32)
-    y   = rng.integers(0, N_CLASSES, N_SAMPLES)
+    X = rng.random((N_SAMPLES, N_FEATURES)).astype(np.float32)
+    y = rng.integers(0, N_CLASSES, N_SAMPLES)
     clf = train_random_forest(X, y, n_estimators=10, save_path=None)
     return clf, X
 
@@ -47,8 +47,8 @@ class TestSHAPTreeExplainer:
 
     def test_feature_names_preserved(self, fitted_rf):
         clf, X = fitted_rf
-        names  = [f"feature_{i}" for i in range(N_FEATURES)]
-        expl   = explain_tree(clf, X, feature_names=names, max_samples=20)
+        names = [f"feature_{i}" for i in range(N_FEATURES)]
+        expl = explain_tree(clf, X, feature_names=names, max_samples=20)
         assert expl.feature_names == names
 
     def test_base_values_present(self, fitted_rf):
