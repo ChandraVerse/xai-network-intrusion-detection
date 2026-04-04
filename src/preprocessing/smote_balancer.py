@@ -1,49 +1,87 @@
-"""
-smote_balancer.py
------------------
-SMOTE over-sampling for minority attack classes.
-Applied to the TRAINING set only — never touch the test set.
+"""SMOTE oversampler for XAI-NIDS minority class balancing.
 
-Usage:
-    from src.preprocessing.smote_balancer import apply_smote
+Applied to the TRAINING SET ONLY after the train/test split.
+Raises all minority classes to match the majority class count.
+
+Usage (CLI):
+    python src/preprocessing/smote_balancer.py \\
+        --train data/processed/train_scaled.csv \\
+        --out   data/processed/
+
+Outputs:
+    data/processed/train_balanced.csv
 """
-import numpy as np
+
+import argparse
+import logging
+from pathlib import Path
+
+import pandas as pd
 from imblearn.over_sampling import SMOTE
+from collections import Counter
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger(__name__)
 
 
-def apply_smote(
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    strategy: str = "not majority",
-    random_state: int = 42,
-    k_neighbors: int = 5,
-) -> tuple:
-    """
-    Apply SMOTE to the training set.
+def balance(
+    train_path: str | Path,
+    label_col: str = "label_encoded",
+) -> pd.DataFrame:
+    """Load training CSV, apply SMOTE, return balanced DataFrame."""
+    df = pd.read_csv(train_path)
+    feature_cols = [c for c in df.columns if c != label_col]
 
-    Parameters
-    ----------
-    X_train      : scaled feature matrix (numpy array)
-    y_train      : integer-encoded label vector
-    strategy     : SMOTE sampling_strategy ('not majority' by default)
-    random_state : reproducibility seed
-    k_neighbors  : number of nearest neighbours for synthetic sample generation
+    X = df[feature_cols].values
+    y = df[label_col].values
 
-    Returns
-    -------
-    X_resampled, y_resampled as numpy arrays
-    """
-    print(f"  [smote] Before SMOTE — X: {X_train.shape}, class counts: "
-          f"{dict(zip(*np.unique(y_train, return_counts=True)))}")
+    log.info("Pre-SMOTE class distribution: %s", dict(Counter(y)))
 
     smote = SMOTE(
-        sampling_strategy=strategy,
-        random_state=random_state,
-        k_neighbors=k_neighbors,
+        sampling_strategy="not majority",  # raises all minority to match majority
+        k_neighbors=5,
+        random_state=42,
+        n_jobs=-1,
     )
-    X_res, y_res = smote.fit_resample(X_train, y_train)
+    X_res, y_res = smote.fit_resample(X, y)
 
-    print(f"  [smote] After SMOTE  — X: {X_res.shape}, class counts: "
-          f"{dict(zip(*np.unique(y_res, return_counts=True)))}")
+    log.info("Post-SMOTE class distribution: %s", dict(Counter(y_res)))
+    log.info(
+        "Balanced training set: %d → %d rows  (+%d synthetic)",
+        len(X), len(X_res), len(X_res) - len(X),
+    )
 
-    return X_res, y_res
+    balanced = pd.DataFrame(X_res, columns=feature_cols)
+    balanced[label_col] = y_res
+    return balanced
+
+
+def save(df: pd.DataFrame, out_dir: str | Path) -> Path:
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    out_path = out / "train_balanced.csv"
+    df.to_csv(out_path, index=False)
+    log.info("Saved → %s  (%d rows)", out_path, len(df))
+    return out_path
+
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="SMOTE balance the training set")
+    p.add_argument("--train", default="data/processed/train_scaled.csv")
+    p.add_argument("--out",   default="data/processed/")
+    p.add_argument("--label", default="label_encoded")
+    return p.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    balanced = balance(args.train, label_col=args.label)
+    save(balanced, args.out)
+
+
+if __name__ == "__main__":
+    main()

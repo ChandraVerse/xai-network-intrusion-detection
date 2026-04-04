@@ -1,94 +1,135 @@
+"""Global SHAP summary visualisations (beeswarm, bar, dependence plots).
+
+Used for model validation and global interpretability — not per-alert triage.
+
+Usage:
+    from src.explainability.summary_plot import (
+        plot_beeswarm, plot_bar, plot_dependence
+    )
+
+    fig = plot_beeswarm(shap_values, X_test, feature_names)
+    fig.savefig("docs/eda_plots/shap_beeswarm.png", dpi=150, bbox_inches="tight")
 """
-summary_plot.py
----------------
-Global SHAP beeswarm and dependence plots.
-"""
-import os
-import numpy as np
+
+from __future__ import annotations
+
+import logging
+
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
 import shap
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(message)s",
+)
+log = logging.getLogger(__name__)
 
 
 def plot_beeswarm(
-    shap_explanation: shap.Explanation,
+    shap_values,                  # list[np.ndarray] (n_classes, n_samples, n_features)
+    X_test: np.ndarray,
+    feature_names: list[str],
+    class_idx: int = 0,
     max_display: int = 20,
-    save_path: str = None,
-    title: str = "SHAP Global Feature Importance (Beeswarm)",
-) -> None:
-    """
-    Plot a SHAP beeswarm summary across all samples.
+    figsize: tuple[float, float] = (10, 7),
+) -> plt.Figure:
+    """Global beeswarm summary plot — shows distribution of SHAP values across test set.
 
-    Parameters
-    ----------
-    shap_explanation : shap.Explanation from TreeExplainer
-    max_display      : number of top features to show
-    save_path        : if provided, saves the figure
-    title            : chart title
+    Args:
+        shap_values:   SHAP values from TreeExplainer (list of per-class arrays).
+        X_test:        Test feature matrix, shape (n_samples, n_features).
+        feature_names: Feature names list.
+        class_idx:     Which class to plot (default 0 = BENIGN, change per attack).
+        max_display:   Number of top features to show.
+        figsize:       Matplotlib figure size.
     """
-    # Flatten multi-class SHAP values by taking mean absolute across classes
-    exp = shap_explanation
-    if exp.values.ndim == 3:
-        vals = exp.values.mean(axis=-1)      # (samples, features)
-        exp  = shap.Explanation(
-            values=vals,
-            base_values=exp.base_values.mean(axis=-1),
-            data=exp.data,
-            feature_names=exp.feature_names,
-        )
+    fig, ax = plt.subplots(figsize=figsize)
+    plt.sca(ax)
 
-    fig, ax = plt.subplots(figsize=(12, 8))
-    shap.plots.beeswarm(exp, max_display=max_display, show=False)
-    plt.title(title, fontsize=13, pad=12)
+    sv = shap_values[class_idx] if isinstance(shap_values, list) else shap_values
+    shap.summary_plot(
+        sv,
+        X_test,
+        feature_names=feature_names,
+        max_display=max_display,
+        show=False,
+        plot_size=None,
+    )
+    ax.set_title(
+        f"SHAP Beeswarm Summary — Class index {class_idx}  |  Top {max_display} features",
+        fontsize=11, pad=12,
+    )
     plt.tight_layout()
+    log.info("Beeswarm plot rendered (class_idx=%d, features=%d)", class_idx, max_display)
+    return fig
 
-    if save_path:
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        plt.savefig(save_path, dpi=150, bbox_inches="tight")
-        print(f"  [beeswarm] Saved to {save_path}")
+
+def plot_bar(
+    shap_values,
+    feature_names: list[str],
+    max_display: int = 20,
+    figsize: tuple[float, float] = (9, 6),
+) -> plt.Figure:
+    """Bar chart of mean absolute SHAP values per feature (global importance)."""
+    # Mean absolute SHAP across classes and samples
+    if isinstance(shap_values, list):
+        mean_abs = np.mean([np.abs(sv).mean(axis=0) for sv in shap_values], axis=0)
     else:
-        plt.show()
+        mean_abs = np.abs(shap_values).mean(axis=0)
 
-    plt.close(fig)
+    indices = np.argsort(mean_abs)[::-1][:max_display]
+    sorted_vals  = mean_abs[indices]
+    sorted_names = [feature_names[i] for i in indices]
+
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.barh(sorted_names[::-1], sorted_vals[::-1], color="#01696f", edgecolor="white")
+    ax.set_xlabel("Mean |SHAP value|", fontsize=9)
+    ax.set_title(f"Global Feature Importance — Top {max_display} features", fontsize=11)
+    ax.spines[["top", "right"]].set_visible(False)
+    plt.tight_layout()
+    log.info("Bar importance plot rendered")
+    return fig
 
 
 def plot_dependence(
-    shap_explanation: shap.Explanation,
     feature: str,
-    interaction_feature: str = "auto",
-    save_path: str = None,
-) -> None:
+    shap_values,
+    X_test: np.ndarray,
+    feature_names: list[str],
+    interaction_feature: str | None = None,
+    class_idx: int = 0,
+    figsize: tuple[float, float] = (8, 5),
+) -> plt.Figure:
+    """Dependence plot: feature value vs SHAP(feature), coloured by interaction feature.
+
+    Args:
+        feature:              Name of the feature to plot on x-axis.
+        shap_values:          SHAP values array.
+        X_test:               Test feature matrix.
+        feature_names:        Feature name list.
+        interaction_feature:  Optional feature for dot colouring (auto if None).
+        class_idx:            Class to use for SHAP values.
     """
-    Plot SHAP dependence plot for a single feature.
+    fig, ax = plt.subplots(figsize=figsize)
+    plt.sca(ax)
 
-    Parameters
-    ----------
-    shap_explanation    : shap.Explanation from TreeExplainer
-    feature             : name of the primary feature
-    interaction_feature : feature to colour by ('auto' lets SHAP choose)
-    save_path           : if provided, saves the figure
-    """
-    exp = shap_explanation
-    feature_names = exp.feature_names or []
-    feat_idx = feature_names.index(feature) if feature in feature_names else 0
-
-    vals = exp.values
-    if vals.ndim == 3:
-        vals = vals.mean(axis=-1)
-
-    fig, ax = plt.subplots(figsize=(8, 5))
+    sv = shap_values[class_idx] if isinstance(shap_values, list) else shap_values
     shap.dependence_plot(
-        feat_idx, vals, exp.data,
+        feature,
+        sv,
+        X_test,
         feature_names=feature_names,
         interaction_index=interaction_feature,
-        ax=ax, show=False,
+        ax=ax,
+        show=False,
+    )
+    ax.set_title(
+        f"SHAP Dependence: '{feature}' (class idx {class_idx})",
+        fontsize=11, pad=10,
     )
     plt.tight_layout()
-
-    if save_path:
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        plt.savefig(save_path, dpi=150, bbox_inches="tight")
-        print(f"  [dependence] Saved to {save_path}")
-    else:
-        plt.show()
-
-    plt.close(fig)
+    log.info("Dependence plot rendered for feature='%s'", feature)
+    return fig

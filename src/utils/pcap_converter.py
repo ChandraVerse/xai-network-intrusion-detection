@@ -1,74 +1,118 @@
-"""
-pcap_converter.py
------------------
-Convert raw PCAP files to CICFlowMeter-style 78-feature CSVs.
+"""PCAP to CICFlowMeter CSV converter wrapper.
 
-This script is a wrapper that calls CICFlowMeter's jar (if installed)
-or provides guidance on how to run it manually.
+Wraps the CICFlowMeter CLI to convert raw PCAP files into
+78-feature CSV records compatible with the XAI-NIDS pipeline.
 
-CICFlowMeter download: https://github.com/CanadianInstituteForCybersecurity/CICFlowMeter
+Prerequisites:
+    - Java 8+ installed and on PATH
+    - CICFlowMeter JAR downloaded from:
+      https://github.com/ahlashkari/CICFlowMeter
+    - Set env var: CICFLOWMETER_JAR=/path/to/CICFlowMeter.jar
+
+Usage (CLI):
+    python src/utils/pcap_converter.py \\
+        --input  /path/to/capture.pcap \\
+        --output data/raw/
 """
+
 import argparse
+import logging
 import os
 import subprocess
-import sys
+from pathlib import Path
 
-CICFLOW_JAR = os.environ.get(
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger(__name__)
+
+DEFAULT_JAR = os.environ.get(
     "CICFLOWMETER_JAR",
-    "/opt/CICFlowMeter/CICFlowMeter.jar"
+    "tools/CICFlowMeter.jar",
 )
 
 
-def convert_pcap(pcap_path: str, output_dir: str, jar_path: str = CICFLOW_JAR) -> str:
-    """
-    Run CICFlowMeter on a PCAP file and output a feature CSV.
+def convert(
+    pcap_path: str | Path,
+    output_dir: str | Path,
+    jar_path: str | Path = DEFAULT_JAR,
+) -> Path:
+    """Convert a PCAP file to a CICFlowMeter feature CSV.
 
-    Parameters
-    ----------
-    pcap_path  : path to the input .pcap file
-    output_dir : directory where the output CSV will be written
-    jar_path   : path to the CICFlowMeter JAR
+    Args:
+        pcap_path:  Path to the .pcap input file.
+        output_dir: Directory where the output CSV will be written.
+        jar_path:   Path to the CICFlowMeter JAR file.
 
-    Returns the path to the output CSV.
+    Returns:
+        Path to the generated CSV file.
+
+    Raises:
+        FileNotFoundError: If pcap_path or jar_path does not exist.
+        subprocess.CalledProcessError: If CICFlowMeter exits with an error.
     """
-    if not os.path.exists(jar_path):
-        print(
-            "\n[pcap_converter] CICFlowMeter JAR not found at:", jar_path,
-            "\nDownload from: https://github.com/CanadianInstituteForCybersecurity/CICFlowMeter",
-            "\nOr set the CICFLOWMETER_JAR environment variable.",
-            "\n\nManual usage:",
-            "\n  java -jar CICFlowMeter.jar <pcap_file> <output_dir>",
+    pcap_path  = Path(pcap_path)
+    output_dir = Path(output_dir)
+    jar_path   = Path(jar_path)
+
+    if not pcap_path.exists():
+        raise FileNotFoundError(f"PCAP not found: {pcap_path}")
+    if not jar_path.exists():
+        raise FileNotFoundError(
+            f"CICFlowMeter JAR not found at {jar_path}.\n"
+            "Set CICFLOWMETER_JAR env var or pass --jar argument."
         )
-        sys.exit(1)
 
-    os.makedirs(output_dir, exist_ok=True)
-    cmd = ["java", "-jar", jar_path, pcap_path, output_dir]
-    print(f"  [pcap_converter] Running: {' '.join(cmd)}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    cmd = [
+        "java", "-jar", str(jar_path),
+        str(pcap_path),
+        str(output_dir),
+    ]
+    log.info("Running CICFlowMeter: %s", " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     if result.returncode != 0:
-        print("  [pcap_converter] STDERR:", result.stderr)
-        raise RuntimeError(f"CICFlowMeter failed for {pcap_path}")
+        log.error("CICFlowMeter stderr:\n%s", result.stderr)
+        raise subprocess.CalledProcessError(
+            result.returncode, cmd, result.stdout, result.stderr
+        )
 
-    # CICFlowMeter writes <pcap_basename>_YYYYMMDD_HHmmss.csv
-    csv_files = [
-        os.path.join(output_dir, f)
-        for f in os.listdir(output_dir)
-        if f.endswith(".csv")
-    ]
-    if not csv_files:
-        raise FileNotFoundError(f"No CSV output found in {output_dir}")
+    log.info("CICFlowMeter stdout:\n%s", result.stdout)
 
-    latest = max(csv_files, key=os.path.getctime)
-    print(f"  [pcap_converter] Output CSV: {latest}")
-    return latest
+    # CICFlowMeter names the output after the input PCAP
+    expected_csv = output_dir / (pcap_path.stem + "_ISCX.csv")
+    if expected_csv.exists():
+        log.info("Output CSV → %s", expected_csv)
+        return expected_csv
+
+    # Fallback: find any CSV in output_dir newer than when we started
+    csvs = sorted(output_dir.glob("*.csv"))
+    if csvs:
+        log.info("Output CSV → %s", csvs[-1])
+        return csvs[-1]
+
+    raise FileNotFoundError(
+        f"CICFlowMeter completed but no CSV found in {output_dir}"
+    )
+
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="Convert PCAP to CICFlowMeter CSV")
+    p.add_argument("--input",  required=True, help="Path to input .pcap file")
+    p.add_argument("--output", default="data/raw/",  help="Output directory")
+    p.add_argument("--jar",    default=DEFAULT_JAR,  help="Path to CICFlowMeter JAR")
+    return p.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    out = convert(args.input, args.output, args.jar)
+    print(f"Generated: {out}")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Convert PCAP to CICFlowMeter 78-feature CSV"
-    )
-    parser.add_argument("--pcap",   required=True, help="Input .pcap file")
-    parser.add_argument("--output", required=True, help="Output directory")
-    args = parser.parse_args()
-    convert_pcap(args.pcap, args.output)
+    main()
