@@ -38,7 +38,7 @@ def fit_transform(
 ) -> tuple[pd.DataFrame, pd.DataFrame, MinMaxScaler]:
     """Fit scaler on train, transform both splits. Returns scaled DataFrames + scaler."""
     train = pd.read_csv(train_path)
-    test  = pd.read_csv(test_path)
+    test = pd.read_csv(test_path)
 
     feature_cols = [c for c in train.columns if c != label_col]
     log.info("Fitting MinMaxScaler on %d training samples, %d features",
@@ -48,7 +48,7 @@ def fit_transform(
     # Fit on training features ONLY
     train[feature_cols] = scaler.fit_transform(train[feature_cols])
     # Apply (not fit) on test
-    test[feature_cols]  = scaler.transform(test[feature_cols])
+    test[feature_cols] = scaler.transform(test[feature_cols])
 
     log.info("Scaling complete.  Feature range: [0, 1]")
     return train, test, scaler

@@ -20,11 +20,9 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import (
     accuracy_score,
-    classification_report,
     confusion_matrix,
     f1_score,
     roc_auc_score,
-    roc_curve,
 )
 from sklearn.preprocessing import label_binarize
 
@@ -54,10 +52,10 @@ def compute_metrics(
         Dictionary with accuracy, macro F1, per-class DR/FAR/FPR, macro ROC-AUC.
     """
     n_classes = y_prob.shape[1]
-    classes   = list(range(n_classes))
+    classes = list(range(n_classes))
 
     # ----- Overall metrics -----
-    acc      = accuracy_score(y_true, y_pred)
+    acc = accuracy_score(y_true, y_pred)
     macro_f1 = f1_score(y_true, y_pred, average="macro", zero_division=0)
 
     # ----- Confusion-matrix-derived per-class metrics -----
@@ -67,11 +65,11 @@ def compute_metrics(
     fn = cm.sum(axis=1) - tp
     tn = cm.sum() - (fp + fn + tp)
 
-    dr_per_class  = np.where((tp + fn) > 0, tp / (tp + fn), 0.0)  # Detection Rate / Recall
+    dr_per_class = np.where((tp + fn) > 0, tp / (tp + fn), 0.0)  # Detection Rate / Recall
     fpr_per_class = np.where((fp + tn) > 0, fp / (fp + tn), 0.0)  # False Positive Rate
     prec_per_class = np.where((tp + fp) > 0, tp / (tp + fp), 0.0)
 
-    mean_dr  = float(np.mean(dr_per_class))
+    mean_dr = float(np.mean(dr_per_class))
     mean_fpr = float(np.mean(fpr_per_class))
     mean_prec = float(np.mean(prec_per_class))
 
@@ -161,7 +159,7 @@ def main() -> None:
     args = parse_args()
 
     model = joblib.load(args.model)
-    test  = pd.read_csv(args.test)
+    test = pd.read_csv(args.test)
     feature_cols = [c for c in test.columns if c != args.label]
     X_test = test[feature_cols].values.astype(np.float32)
     y_test = test[args.label].values.astype(int)

@@ -53,9 +53,9 @@ def convert(
         FileNotFoundError: If pcap_path or jar_path does not exist.
         subprocess.CalledProcessError: If CICFlowMeter exits with an error.
     """
-    pcap_path  = Path(pcap_path)
+    pcap_path = Path(pcap_path)
     output_dir = Path(output_dir)
-    jar_path   = Path(jar_path)
+    jar_path = Path(jar_path)
 
     if not pcap_path.exists():
         raise FileNotFoundError(f"PCAP not found: {pcap_path}")

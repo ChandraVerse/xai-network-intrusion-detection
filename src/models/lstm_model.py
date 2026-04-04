@@ -54,8 +54,8 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 TIME_STEPS = 5       # sliding window length
 BATCH_SIZE = 512
-EPOCHS     = 30
-LR         = 1e-3
+EPOCHS = 30
+LR = 1e-3
 
 
 # ---------------------------------------------------------------------------
@@ -80,7 +80,7 @@ def create_sequences(
     """
     Xs, ys = [], []
     for i in range(len(X) - time_steps + 1):
-        Xs.append(X[i : i + time_steps])
+        Xs.append(X[i:i + time_steps])
         ys.append(y[i + time_steps - 1])
     return np.array(Xs, dtype=np.float32), np.array(ys)
 
@@ -129,8 +129,8 @@ def load_split(
     feature_cols = [c for c in train.columns if c != label_col]
     X_train = train[feature_cols].values.astype(np.float32)
     y_train = train[label_col].values.astype(int)
-    X_test  = test[feature_cols].values.astype(np.float32)
-    y_test  = test[label_col].values.astype(int)
+    X_test = test[feature_cols].values.astype(np.float32)
+    y_test = test[label_col].values.astype(int)
 
     n_classes = len(np.unique(y_train))
     log.info(
@@ -192,7 +192,7 @@ def evaluate(
 
     y_pred = np.argmax(y_prob, axis=1)
 
-    acc      = accuracy_score(y_seq, y_pred)
+    acc = accuracy_score(y_seq, y_pred)
     macro_f1 = f1_score(y_seq, y_pred, average="macro", zero_division=0)
 
     cm = confusion_matrix(y_seq, y_pred)
@@ -257,7 +257,7 @@ def main() -> None:
         args.data, args.test, label_col=args.label
     )
     model, _ = train(X_train, y_train, n_classes)
-    metrics  = evaluate(model, X_test, y_test, n_classes)
+    metrics = evaluate(model, X_test, y_test, n_classes)
     save(model, metrics, args.out)
     log.info("Done.")
 

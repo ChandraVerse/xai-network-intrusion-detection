@@ -16,10 +16,10 @@ from __future__ import annotations
 import logging
 
 import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import numpy as np
-import shap
+matplotlib.use("Agg")  # noqa: E402
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+import shap  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -81,7 +81,7 @@ def plot_bar(
         mean_abs = np.abs(shap_values).mean(axis=0)
 
     indices = np.argsort(mean_abs)[::-1][:max_display]
-    sorted_vals  = mean_abs[indices]
+    sorted_vals = mean_abs[indices]
     sorted_names = [feature_names[i] for i in indices]
 
     fig, ax = plt.subplots(figsize=figsize)

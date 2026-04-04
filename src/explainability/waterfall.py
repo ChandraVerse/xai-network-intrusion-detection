@@ -22,9 +22,9 @@ from __future__ import annotations
 import logging
 
 import matplotlib
-matplotlib.use("Agg")  # non-interactive backend (safe for Streamlit + Docker)
-import matplotlib.pyplot as plt
-import numpy as np
+matplotlib.use("Agg")  # non-interactive backend (safe for Streamlit + Docker)  # noqa: E402
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,9 +34,9 @@ log = logging.getLogger(__name__)
 
 
 # Colour palette consistent with SHAP defaults
-_RED   = "#d7191c"   # positive contribution → pushes toward attack
-_BLUE  = "#2c7bb6"   # negative contribution → pushes toward benign
-_GREY  = "#888888"
+_RED = "#d7191c"    # positive contribution → pushes toward attack
+_BLUE = "#2c7bb6"   # negative contribution → pushes toward benign
+_GREY = "#888888"
 
 
 def plot_waterfall(
@@ -70,12 +70,12 @@ def plot_waterfall(
 
     # Select top-N features by absolute SHAP value
     indices = np.argsort(np.abs(shap_vals))[::-1][:top_n]
-    top_vals  = shap_vals[indices]
+    top_vals = shap_vals[indices]
     top_names = [feature_names[i] for i in indices]
 
     # Sort by value for visual waterfall ordering
     sort_order = np.argsort(top_vals)
-    sorted_vals  = top_vals[sort_order]
+    sorted_vals = top_vals[sort_order]
     sorted_names = [top_names[i] for i in sort_order]
 
     colours = [_RED if v > 0 else _BLUE for v in sorted_vals]
