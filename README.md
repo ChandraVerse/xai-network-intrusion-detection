@@ -570,7 +570,7 @@ Beyond accuracy — this project tracks the metrics that matter in a real SOC de
 | Phase | Description | Status |
 |-------|-------------|--------|
 | **Phase 1** | Dataset download, EDA, class distribution analysis | ✅ Complete |
-| **Phase 2** | Preprocessing pipeline (clean, scale, SMOTE, encode) | 🔄 Apr 8–14 |
+| **Phase 2** | Preprocessing pipeline (clean, scale, SMOTE, encode) | ✅ Complete |
 | **Phase 3** | Model training — RF, XGBoost, LSTM + evaluation | 🔄 Apr 15–21 |
 | **Phase 4** | SHAP integration, waterfall + beeswarm plots | 🔄 Apr 15–21 |
 | **Phase 5** | Streamlit dashboard (upload → predict → explain) | 🔄 Apr 22–30 |
@@ -584,6 +584,17 @@ Beyond accuracy — this project tracks the metrics that matter in a real SOC de
 - [x] `.gitignore` — proper exclusions for data, models, secrets
 - [x] `CONTRIBUTING.md` — contribution workflow and model requirements checklist
 - [x] `LICENSE` — MIT
+
+### Phase 2 Deliverables (Complete ✅)
+
+- [x] `notebooks/02_preprocessing.ipynb` — 10-step preprocessing pipeline notebook
+  - Inf / NaN cleaning with median fill strategy
+  - Zero-variance feature removal
+  - LabelEncoder — 14-class integer mapping
+  - Stratified 80/20 train/test split
+  - MinMaxScaler (fit on train only — no data leakage)
+  - SMOTE balancing on training set only (`not majority` strategy)
+  - Artifacts saved: `train_balanced.csv`, `test.csv`, `minmax_scaler.pkl`, `label_encoder.pkl`, `preprocessing_meta.json`, `feature_cols.json`, `label_map.json`
 
 ---
 
@@ -599,7 +610,7 @@ xai-network-intrusion-detection/
 │
 ├── notebooks/
 │   ├── 01_eda.ipynb            # ✅ Phase 1 — Exploratory Data Analysis
-│   ├── 02_preprocessing.ipynb  # Phase 2 — Full preprocessing pipeline
+│   ├── 02_preprocessing.ipynb  # ✅ Phase 2 — Full preprocessing pipeline
 │   ├── 03_model_training.ipynb # Phase 3 — RF, XGBoost, LSTM training
 │   └── 04_xai_shap.ipynb       # Phase 4 — SHAP integration
 │
