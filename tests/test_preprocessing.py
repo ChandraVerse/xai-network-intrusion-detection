@@ -12,12 +12,12 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from src.preprocessing.cleaner import clean_dataframe  # noqa: E402
-from src.preprocessing.scaler import apply_scaler, fit_scaler  # noqa: E402
-from src.preprocessing.smote_balancer import apply_smote  # noqa: E402
+from src.preprocessing.cleaner import clean_dataframe  # noqa: E402, F401
+from src.preprocessing.scaler import apply_scaler, fit_scaler  # noqa: E402, F401
+from src.preprocessing.smote_balancer import apply_smote  # noqa: E402, F401
 
 
-# ─── Fixtures ─────────────────────────────────────────────
+# ─── Fixtures ─────────────────────────────────────────────────────────
 
 @pytest.fixture
 def sample_df():
@@ -43,7 +43,7 @@ def clean_df(sample_df):
     return clean_dataframe(sample_df.copy())
 
 
-# ─── cleaner.py tests ────────────────────────────────────────────
+# ─── cleaner.py tests ────────────────────────────────────────────────────────────────
 
 class TestCleaner:
     def test_no_inf(self, clean_df):
@@ -75,7 +75,7 @@ class TestCleaner:
         assert clean_df.shape[1] < sample_df.shape[1]
 
 
-# ─── scaler.py tests ─────────────────────────────────────────────
+# ─── scaler.py tests ─────────────────────────────────────────────────────────────────
 
 class TestScaler:
     def test_scale_range(self, clean_df):
@@ -96,7 +96,7 @@ class TestScaler:
         assert X_scaled.shape == X.shape
 
 
-# ─── smote_balancer.py tests ───────────────────────────────────────────
+# ─── smote_balancer.py tests ─────────────────────────────────────────────────────────────────────
 
 class TestSMOTE:
     def test_smote_increases_minority(self):

@@ -12,7 +12,6 @@ Usage (CLI):
 """
 
 import argparse
-import json
 import logging
 from pathlib import Path
 from typing import Literal
@@ -152,12 +151,12 @@ def explain_single(
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Compute SHAP values for XAI-NIDS")
-    p.add_argument("--model",  required=True,        help="Path to .pkl model file")
-    p.add_argument("--type",   default="tree",        choices=["tree", "deep"])
-    p.add_argument("--data",   required=True,         help="CSV of flows to explain")
-    p.add_argument("--bg",     default=None,          help="Background CSV for DeepExplainer")
-    p.add_argument("--label",  default="label_encoded")
-    p.add_argument("--out",    default="models/shap_values.npy")
+    p.add_argument("--model", required=True, help="Path to .pkl model file")
+    p.add_argument("--type", default="tree", choices=["tree", "deep"])
+    p.add_argument("--data", required=True, help="CSV of flows to explain")
+    p.add_argument("--bg", default=None, help="Background CSV for DeepExplainer")
+    p.add_argument("--label", default="label_encoded")
+    p.add_argument("--out", default="models/shap_values.npy")
     return p.parse_args()
 
 
