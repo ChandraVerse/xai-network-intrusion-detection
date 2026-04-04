@@ -1,0 +1,59 @@
+# ── Python ────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── Jupyter ───────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ── Data (never commit raw data) ──────────────────────────
+data/raw/
+data/processed/
+*.csv
+*.pcap
+*.pcapng
+
+# ── Models (large binaries — use Git LFS or releases) ─────
+models/*.pkl
+models/*.joblib
+models/*.h5
+models/*.keras
+models/*.pt
+models/*.pth
+*.model
+
+# ── Secrets & Environment ─────────────────────────────────
+.env
+.env.local
+.env.*
+secrets.yaml
+
+# ── IDE / OS ──────────────────────────────────────────────
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ── Reports (generated, not source) ───────────────────────
+docs/eda_plots/*.png
+reports/figures/
+
+# ── Logs ──────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Streamlit cache ───────────────────────────────────────
+.streamlit/
