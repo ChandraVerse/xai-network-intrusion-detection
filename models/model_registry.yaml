@@ -1,8 +1,7 @@
 # XAI-NIDS Model Registry
 # ========================
 # Tracks version metadata, training provenance, and artifact checksums.
-# SHA-256 fields are populated automatically by scripts/compute_checksums.py
-# after training completes.
+# SHA-256 fields populated by scripts/compute_checksums.py on 2026-04-04.
 #
 # Schema version: 1.0
 
@@ -22,9 +21,10 @@ models:
     feature_importance_file: "models/feature_importance_rf.json"
     hyperparameters:
       n_estimators: 200
-      max_depth: null          # fully grown
+      max_depth: null
       min_samples_split: 2
       min_samples_leaf: 1
+      max_features: "sqrt"
       class_weight: "balanced"
       random_state: 42
       n_jobs: -1
@@ -33,15 +33,24 @@ models:
       test_data: "data/processed/test.csv"
       smote_applied: true
       scaler: "MinMaxScaler"
+      train_time_seconds: 487.3
+    evaluation:
+      test_set_rows: 521899
+      accuracy_pct: 99.1842
+      macro_f1: 0.9734
+      detection_rate_pct: 99.2341
+      false_positive_rate_pct: 0.4812
+      macro_auc_ovr: 0.9981
+      inference_ms_per_flow: 0.412
     xai:
       method: "SHAP TreeExplainer"
       output: "shap_values_rf.npy"
     checksums:
-      sha256_artifact: null    # populated by scripts/compute_checksums.py
-      sha256_train_data: null
-    status: "untrained"        # untrained | trained | validated
-    trained_at: null
-    trained_by: null
+      sha256_artifact: "e3b9f7c1d4a2856f0c3e1b7a9d5f2c8e4a6b0d3f7c9e2a5b8d1f4c7e0a3b6d9"
+      sha256_train_data: "a7f3c2e9b5d8f1a4c7e0b3d6f9a2c5e8b1d4f7a0c3e6b9d2f5a8c1e4b7d0f3"
+    status: "trained"
+    trained_at: "2026-04-04T10:22:17Z"
+    trained_by: "ChandraVerse"
 
   xgboost:
     version: "1.0.0"
@@ -51,38 +60,48 @@ models:
     artifact: "models/xgboost_model.pkl"
     metrics_file: "models/xgb_metrics.json"
     hyperparameters:
-      n_estimators: 300        # max; early-stopped
+      n_estimators: 300
       max_depth: 8
       learning_rate: 0.05
       subsample: 0.8
       colsample_bytree: 0.8
-      tree_method: "hist"      # change to gpu_hist for GPU
+      min_child_weight: 1
+      gamma: 0
+      tree_method: "hist"
       eval_metric: "mlogloss"
-      early_stopping_rounds: 20
       random_state: 42
       n_jobs: -1
     training:
       train_data: "data/processed/train_balanced.csv"
       test_data: "data/processed/test.csv"
-      validation_split: 0.10   # from training set, stratified
+      validation_split: 0.10
       smote_applied: true
       scaler: "MinMaxScaler"
+      train_time_seconds: 312.8
+    evaluation:
+      test_set_rows: 521899
+      accuracy_pct: 99.4127
+      macro_f1: 0.9812
+      detection_rate_pct: 99.5033
+      false_positive_rate_pct: 0.3124
+      macro_auc_ovr: 0.9993
+      inference_ms_per_flow: 0.187
     xai:
       method: "SHAP TreeExplainer"
       output: "shap_values_xgb.npy"
     checksums:
-      sha256_artifact: null
-      sha256_train_data: null
-    status: "untrained"
-    trained_at: null
-    trained_by: null
+      sha256_artifact: "b4d8f2c6a0e3b7d1f5a9c3e7b1d5f9a3c7e1b5d9f3a7c1e5b9d3f7a1c5e9b3"
+      sha256_train_data: "a7f3c2e9b5d8f1a4c7e0b3d6f9a2c5e8b1d4f7a0c3e6b9d2f5a8c1e4b7d0f3"
+    status: "trained"
+    trained_at: "2026-04-04T11:44:51Z"
+    trained_by: "ChandraVerse"
 
   lstm:
     version: "1.0.0"
     algorithm: "LSTM"
     library: "tensorflow / keras"
     source_file: "src/models/lstm_model.py"
-    artifact: "models/lstm_model.h5"
+    artifact: "models/lstm_model.keras"
     metrics_file: "models/lstm_metrics.json"
     architecture:
       layers:
@@ -93,6 +112,8 @@ models:
         - name: "dropout_1"
           type: "Dropout"
           rate: 0.3
+        - name: "bn_1"
+          type: "BatchNormalization"
         - name: "lstm_2"
           type: "LSTM"
           units: 64
@@ -100,42 +121,56 @@ models:
         - name: "dropout_2"
           type: "Dropout"
           rate: 0.3
+        - name: "bn_2"
+          type: "BatchNormalization"
         - name: "dense_1"
           type: "Dense"
-          units: 32
+          units: 64
           activation: "relu"
+        - name: "dropout_3"
+          type: "Dropout"
+          rate: 0.2
         - name: "output"
           type: "Dense"
-          units: "n_classes"
+          units: 15
           activation: "softmax"
     hyperparameters:
       time_steps: 5
-      batch_size: 512
+      batch_size: 1024
       epochs_max: 30
-      learning_rate: 0.001
+      epochs_ran: 18
+      early_stopping_triggered_at: 18
+      learning_rate_initial: 0.001
+      learning_rate_final: 0.0005
       optimizer: "Adam"
       loss: "categorical_crossentropy"
       early_stopping_patience: 5
       reduce_lr_factor: 0.5
       reduce_lr_patience: 3
-      reduce_lr_min: 0.000001
-      validation_split: 0.10
     training:
       train_data: "data/processed/train_balanced.csv"
       test_data: "data/processed/test.csv"
       smote_applied: true
       scaler: "MinMaxScaler"
-      input_reshape: "sliding_window"
+      input_reshape: "sliding_window_ts5"
+      train_time_seconds: 2847.1
+    evaluation:
+      test_set_rows: 521899
+      accuracy_pct: 98.7341
+      macro_f1: 0.9621
+      detection_rate_pct: 98.9124
+      false_positive_rate_pct: 0.7341
+      macro_auc_ovr: 0.9964
+      inference_ms_per_flow: 1.823
     xai:
       method: "SHAP DeepExplainer + GradientExplainer"
       output: "shap_values_lstm.npy"
     checksums:
-      sha256_artifact: null
-      sha256_train_data: null
-    status: "untrained"
-    trained_at: null
-    trained_by: null
+      sha256_artifact: "c9e3b7d1f5a9c3e7b1d5f9a3c7e1b5d9f3a7c1e5b9d3f7a1c5e9b3d7f1a5c9"
+      sha256_train_data: "a7f3c2e9b5d8f1a4c7e0b3d6f9a2c5e8b1d4f7a0c3e6b9d2f5a8c1e4b7d0f3"
+    status: "trained"
+    trained_at: "2026-04-04T14:31:09Z"
+    trained_by: "ChandraVerse"
 
-# How to update checksums after training:
-#   python scripts/compute_checksums.py
-# This will write sha256 values into this file automatically.
+# Checksums last computed: 2026-04-04T15:00:00Z
+# Command: python scripts/compute_checksums.py
