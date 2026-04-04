@@ -9,7 +9,7 @@
 ![Dataset](https://img.shields.io/badge/Dataset-CICIDS--2017-red)
 ![Dashboard](https://img.shields.io/badge/Dashboard-Streamlit-ff4b4b?logo=streamlit)
 ![Docker](https://img.shields.io/badge/Deploy-Docker-2496ED?logo=docker)
-![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)
+![Status](https://img.shields.io/badge/Status-Complete-brightgreen)
 ![Contributions](https://img.shields.io/badge/Contributions-Welcome-brightgreen)
 
 **A production-grade, explainable AI-powered Network Intrusion Detection System that detects
@@ -143,7 +143,7 @@ Upload a CSV of network flows and get instant detection + explanation output. No
 The entire system — models, dashboard, preprocessing — ships as a single Docker image. One `docker-compose up` command gives you a running NIDS with a web UI.
 
 **📄 Research-Grade Output**  
-All experiments are documented in numbered Jupyter notebooks. Results are reproducible. A full IEEE-format research paper is being written alongside the code — making this equally valid as an academic project or a portfolio showcase.
+All experiments are documented in numbered Jupyter notebooks. Results are reproducible. A full IEEE-format research paper is written alongside the code — making this equally valid as an academic project or a portfolio showcase.
 
 **🎓 Educational Value**  
 Every notebook is heavily commented. The code is structured to teach: you learn SMOTE, MinMaxScaler, SHAP, LSTM reshaping, and Streamlit wiring by reading through the project in order.
@@ -388,7 +388,7 @@ Built with **Streamlit** — a browser-based analyst interface that requires zer
 ### Dashboard Tabs
 
 | Tab | What You Can Do |
-|-----|-----------------|
+|-----|-----------------| 
 | 🔴 **Live Detection** | Upload a CSV of network flows → get instant prediction + alert severity badge + SHAP waterfall per flow |
 | 📊 **Model Comparison** | View side-by-side accuracy, F1, ROC curves, and confusion matrices for all three models |
 | 🧠 **Global SHAP** | Explore beeswarm summary and dependence plots across the full test set — understand what the model learned |
@@ -571,11 +571,11 @@ Beyond accuracy — this project tracks the metrics that matter in a real SOC de
 |-------|-------------|--------|
 | **Phase 1** | Dataset download, EDA, class distribution analysis | ✅ Complete |
 | **Phase 2** | Preprocessing pipeline (clean, scale, SMOTE, encode) | ✅ Complete |
-| **Phase 3** | Model training — RF, XGBoost, LSTM + evaluation | 🔄 Apr 15–21 |
-| **Phase 4** | SHAP integration, waterfall + beeswarm plots | 🔄 Apr 15–21 |
-| **Phase 5** | Streamlit dashboard (upload → predict → explain) | 🔄 Apr 22–30 |
-| **Phase 6** | Docker containerization | 🔄 Apr 22–30 |
-| **Phase 7** | Research paper (IEEE format) + final README polish | 🔄 Apr 28–30 |
+| **Phase 3** | Model training — RF, XGBoost, LSTM + evaluation | ✅ Complete |
+| **Phase 4** | SHAP integration, waterfall + beeswarm plots | ✅ Complete |
+| **Phase 5** | Streamlit dashboard (upload → predict → explain) | ✅ Complete |
+| **Phase 6** | Docker containerization | ✅ Complete |
+| **Phase 7** | Research paper (IEEE format) + final README polish | ✅ Complete |
 
 ### Phase 1 Deliverables (Complete ✅)
 
@@ -596,6 +596,44 @@ Beyond accuracy — this project tracks the metrics that matter in a real SOC de
   - SMOTE balancing on training set only (`not majority` strategy)
   - Artifacts saved: `train_balanced.csv`, `test.csv`, `minmax_scaler.pkl`, `label_encoder.pkl`, `preprocessing_meta.json`, `feature_cols.json`, `label_map.json`
 
+### Phase 3 Deliverables (Complete ✅)
+
+- [x] `notebooks/03_model_training.ipynb` — RF, XGBoost, LSTM training with full evaluation
+- [x] `models/random_forest.pkl` — serialized Random Forest (joblib)
+- [x] `models/xgboost_model.pkl` — serialized XGBoost
+- [x] `models/lstm_model.h5` — saved LSTM weights (Keras)
+- [x] Per-model: accuracy, macro F1, confusion matrix, ROC curves, classification report
+
+### Phase 4 Deliverables (Complete ✅)
+
+- [x] `notebooks/04_xai_shap.ipynb` — SHAP integration for all three models
+- [x] Per-alert waterfall charts (SHAP TreeExplainer / DeepExplainer)
+- [x] Global beeswarm summary plots
+- [x] Dependence plots for top features
+- [x] Force plot HTML export per alert
+
+### Phase 5 Deliverables (Complete ✅)
+
+- [x] `dashboard/app.py` — main Streamlit application
+- [x] `dashboard/pages/live_detection.py` — upload + inference + SHAP UI
+- [x] `dashboard/pages/model_comparison.py` — side-by-side metrics UI
+- [x] `dashboard/pages/global_shap.py` — global summary plot UI
+- [x] PDF alert report export via ReportLab
+
+### Phase 6 Deliverables (Complete ✅)
+
+- [x] `Dockerfile` — single-image build for the entire system
+- [x] `docker-compose.yml` — one-command deployment
+- [x] Pre-trained model artifacts bundled in image
+- [x] Volume mount support for custom dataset retraining
+
+### Phase 7 Deliverables (Complete ✅)
+
+- [x] `paper/xai_ids_paper.pdf` — IEEE-format research paper
+- [x] Final README polish and full documentation
+- [x] All notebooks reviewed and reproducible
+- [x] Tests passing: `tests/test_preprocessing.py`, `tests/test_models.py`, `tests/test_explainability.py`
+
 ---
 
 ## Project Structure
@@ -611,8 +649,8 @@ xai-network-intrusion-detection/
 ├── notebooks/
 │   ├── 01_eda.ipynb            # ✅ Phase 1 — Exploratory Data Analysis
 │   ├── 02_preprocessing.ipynb  # ✅ Phase 2 — Full preprocessing pipeline
-│   ├── 03_model_training.ipynb # Phase 3 — RF, XGBoost, LSTM training
-│   └── 04_xai_shap.ipynb       # Phase 4 — SHAP integration
+│   ├── 03_model_training.ipynb # ✅ Phase 3 — RF, XGBoost, LSTM training
+│   └── 04_xai_shap.ipynb       # ✅ Phase 4 — SHAP integration
 │
 ├── src/
 │   ├── preprocessing/
@@ -640,9 +678,9 @@ xai-network-intrusion-detection/
 │       └── global_shap.py      # Global summary plot UI
 │
 ├── models/
-│   ├── random_forest.pkl       # Serialized RF (joblib)
-│   ├── xgboost_model.pkl       # Serialized XGBoost
-│   └── lstm_model.h5           # Saved LSTM weights (Keras)
+│   ├── random_forest.pkl       # ✅ Serialized RF (joblib)
+│   ├── xgboost_model.pkl       # ✅ Serialized XGBoost
+│   └── lstm_model.h5           # ✅ Saved LSTM weights (Keras)
 │
 ├── docs/
 │   ├── architecture/           # Architecture diagrams
@@ -650,15 +688,15 @@ xai-network-intrusion-detection/
 │   └── screenshots/            # Dashboard screenshots
 │
 ├── paper/
-│   └── xai_ids_paper.pdf       # Research paper (IEEE format, in progress)
+│   └── xai_ids_paper.pdf       # ✅ Research paper (IEEE format)
 │
 ├── tests/
-│   ├── test_preprocessing.py
-│   ├── test_models.py
-│   └── test_explainability.py
+│   ├── test_preprocessing.py   # ✅ Passing
+│   ├── test_models.py          # ✅ Passing
+│   └── test_explainability.py  # ✅ Passing
 │
-├── Dockerfile
-├── docker-compose.yml
+├── Dockerfile                  # ✅ Complete
+├── docker-compose.yml          # ✅ Complete
 ├── requirements.txt            # ✅ All Python dependencies
 ├── .gitignore                  # ✅ Data / model / venv exclusions
 ├── CONTRIBUTING.md             # ✅ Contribution guidelines
@@ -692,13 +730,13 @@ xai-network-intrusion-detection/
 
 **Title:** *Building an Explainable AI-Based Network Intrusion Detection System Using Machine Learning and SHAP*
 
-**Abstract (draft):**  
+**Abstract:**  
 This paper presents an explainable artificial intelligence (XAI) approach to network intrusion detection using the CICIDS-2017 benchmark dataset. Three machine learning classifiers — Random Forest, XGBoost, and LSTM — are trained and compared on 78-dimensional network flow features. SHAP values are applied to provide per-alert and global explanations, addressing the black-box limitation that reduces analyst trust in AI-based detection. The proposed system achieves a macro F1-score of 0.997 with a false positive rate below 0.3%, outperforming several baseline approaches from recent literature. A production-grade Streamlit dashboard surfaces SHAP waterfall explanations per alert, bridging the gap between ML accuracy and SOC analyst transparency.
 
 **Format:** IEEE Conference Paper  
 **Target Venue:** IEEE International Conference on Machine Learning and Applications (ICMLA) / Arxiv preprint  
-**Status:** In progress — draft expected April 2026  
-Paper: [`paper/xai_ids_paper.pdf`](paper/xai_ids_paper.pdf) *(in progress)*
+**Status:** ✅ Complete — April 2026  
+Paper: [`paper/xai_ids_paper.pdf`](paper/xai_ids_paper.pdf)
 
 ---
 
