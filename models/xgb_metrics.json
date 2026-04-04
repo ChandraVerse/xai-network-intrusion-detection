@@ -1,0 +1,10 @@
+{
+  "_note": "Stub — replace by running: python src/models/xgboost_model.py",
+  "model": "XGBoost",
+  "accuracy": null,
+  "macro_f1": null,
+  "false_positive_rate": null,
+  "inference_ms_per_flow": null,
+  "best_iteration": null,
+  "n_test_samples": null
+}

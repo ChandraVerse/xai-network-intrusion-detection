@@ -1,0 +1,12 @@
+{
+  "_note": "Stub — replace by running: python src/models/random_forest.py",
+  "_description": "Gini feature importance per feature, sorted descending. Top features drive most splits.",
+  "_format": "{ \"feature_name\": importance_score, ... }",
+  "_example": {
+    "Flow Duration": 0.0842,
+    "Bwd Packet Length Max": 0.0631,
+    "Fwd Packet Length Max": 0.0589,
+    "Flow IAT Mean": 0.0512,
+    "Bwd IAT Total": 0.0488
+  }
+}

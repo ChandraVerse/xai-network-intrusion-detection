@@ -1,0 +1,141 @@
+# XAI-NIDS Model Registry
+# ========================
+# Tracks version metadata, training provenance, and artifact checksums.
+# SHA-256 fields are populated automatically by scripts/compute_checksums.py
+# after training completes.
+#
+# Schema version: 1.0
+
+schema_version: "1.0"
+project: "xai-network-intrusion-detection"
+dataset: "CICIDS-2017"
+
+models:
+
+  random_forest:
+    version: "1.0.0"
+    algorithm: "RandomForestClassifier"
+    library: "scikit-learn"
+    source_file: "src/models/random_forest.py"
+    artifact: "models/random_forest.pkl"
+    metrics_file: "models/rf_metrics.json"
+    feature_importance_file: "models/feature_importance_rf.json"
+    hyperparameters:
+      n_estimators: 200
+      max_depth: null          # fully grown
+      min_samples_split: 2
+      min_samples_leaf: 1
+      class_weight: "balanced"
+      random_state: 42
+      n_jobs: -1
+    training:
+      train_data: "data/processed/train_balanced.csv"
+      test_data: "data/processed/test.csv"
+      smote_applied: true
+      scaler: "MinMaxScaler"
+    xai:
+      method: "SHAP TreeExplainer"
+      output: "shap_values_rf.npy"
+    checksums:
+      sha256_artifact: null    # populated by scripts/compute_checksums.py
+      sha256_train_data: null
+    status: "untrained"        # untrained | trained | validated
+    trained_at: null
+    trained_by: null
+
+  xgboost:
+    version: "1.0.0"
+    algorithm: "XGBClassifier"
+    library: "xgboost"
+    source_file: "src/models/xgboost_model.py"
+    artifact: "models/xgboost_model.pkl"
+    metrics_file: "models/xgb_metrics.json"
+    hyperparameters:
+      n_estimators: 300        # max; early-stopped
+      max_depth: 8
+      learning_rate: 0.05
+      subsample: 0.8
+      colsample_bytree: 0.8
+      tree_method: "hist"      # change to gpu_hist for GPU
+      eval_metric: "mlogloss"
+      early_stopping_rounds: 20
+      random_state: 42
+      n_jobs: -1
+    training:
+      train_data: "data/processed/train_balanced.csv"
+      test_data: "data/processed/test.csv"
+      validation_split: 0.10   # from training set, stratified
+      smote_applied: true
+      scaler: "MinMaxScaler"
+    xai:
+      method: "SHAP TreeExplainer"
+      output: "shap_values_xgb.npy"
+    checksums:
+      sha256_artifact: null
+      sha256_train_data: null
+    status: "untrained"
+    trained_at: null
+    trained_by: null
+
+  lstm:
+    version: "1.0.0"
+    algorithm: "LSTM"
+    library: "tensorflow / keras"
+    source_file: "src/models/lstm_model.py"
+    artifact: "models/lstm_model.h5"
+    metrics_file: "models/lstm_metrics.json"
+    architecture:
+      layers:
+        - name: "lstm_1"
+          type: "LSTM"
+          units: 128
+          return_sequences: true
+        - name: "dropout_1"
+          type: "Dropout"
+          rate: 0.3
+        - name: "lstm_2"
+          type: "LSTM"
+          units: 64
+          return_sequences: false
+        - name: "dropout_2"
+          type: "Dropout"
+          rate: 0.3
+        - name: "dense_1"
+          type: "Dense"
+          units: 32
+          activation: "relu"
+        - name: "output"
+          type: "Dense"
+          units: "n_classes"
+          activation: "softmax"
+    hyperparameters:
+      time_steps: 5
+      batch_size: 512
+      epochs_max: 30
+      learning_rate: 0.001
+      optimizer: "Adam"
+      loss: "categorical_crossentropy"
+      early_stopping_patience: 5
+      reduce_lr_factor: 0.5
+      reduce_lr_patience: 3
+      reduce_lr_min: 0.000001
+      validation_split: 0.10
+    training:
+      train_data: "data/processed/train_balanced.csv"
+      test_data: "data/processed/test.csv"
+      smote_applied: true
+      scaler: "MinMaxScaler"
+      input_reshape: "sliding_window"
+    xai:
+      method: "SHAP DeepExplainer + GradientExplainer"
+      output: "shap_values_lstm.npy"
+    checksums:
+      sha256_artifact: null
+      sha256_train_data: null
+    status: "untrained"
+    trained_at: null
+    trained_by: null
+
+# How to update checksums after training:
+#   python scripts/compute_checksums.py
+# This will write sha256 values into this file automatically.

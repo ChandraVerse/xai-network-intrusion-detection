@@ -1,0 +1,39 @@
+{
+  "_note": "Stub — populated automatically after all three training scripts complete.",
+  "dataset": "CICIDS-2017",
+  "preprocessing": "MinMaxScaler + SMOTE (train-only)",
+  "label_column": "label_encoded",
+  "n_classes": 15,
+  "models": [
+    {
+      "model": "RandomForest",
+      "artifact": "models/random_forest.pkl",
+      "metrics_file": "models/rf_metrics.json",
+      "accuracy": null,
+      "macro_f1": null,
+      "false_positive_rate": null,
+      "inference_ms_per_flow": null,
+      "xai_method": "SHAP TreeExplainer"
+    },
+    {
+      "model": "XGBoost",
+      "artifact": "models/xgboost_model.pkl",
+      "metrics_file": "models/xgb_metrics.json",
+      "accuracy": null,
+      "macro_f1": null,
+      "false_positive_rate": null,
+      "inference_ms_per_flow": null,
+      "xai_method": "SHAP TreeExplainer"
+    },
+    {
+      "model": "LSTM",
+      "artifact": "models/lstm_model.h5",
+      "metrics_file": "models/lstm_metrics.json",
+      "accuracy": null,
+      "macro_f1": null,
+      "false_positive_rate": null,
+      "inference_ms_per_flow": null,
+      "xai_method": "SHAP DeepExplainer + GradientExplainer"
+    }
+  ]
+}
