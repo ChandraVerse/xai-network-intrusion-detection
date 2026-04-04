@@ -1,0 +1,8 @@
+# Auto-generated binary artifacts — regenerate locally via:
+#   python scripts/build_processed.py
+#
+# See data/processed/README.md for full instructions.
+
+*.npy
+*.pkl
+cleaned.csv
