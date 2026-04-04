@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="900" height="720" viewBox="0 0 900 720" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4a5568"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2b6cb0"/>
+    </marker>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="#00000020"/>
+    </filter>
+  </defs>
+  <rect width="900" height="720" fill="#f7f8fa" rx="12"/>
+  <text x="450" y="38" text-anchor="middle" font-size="18" font-weight="700" fill="#1a202c">XAI-Based Network Intrusion Detection System — Architecture</text>
+  <text x="450" y="58" text-anchor="middle" font-size="12" fill="#718096">CICIDS-2017 · Random Forest · XGBoost · LSTM · SHAP · Streamlit</text>
+  <line x1="60" y1="68" x2="840" y2="68" stroke="#e2e8f0" stroke-width="1.5"/>
+  <!-- INPUT LAYER -->
+  <rect x="60" y="80" width="780" height="80" rx="10" fill="#ebf8ff" stroke="#3182ce" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="90" y="105" font-size="11" font-weight="700" fill="#2b6cb0" letter-spacing="1">INPUT LAYER</text>
+  <rect x="80" y="112" width="200" height="34" rx="7" fill="#bee3f8" stroke="#63b3ed" stroke-width="1"/>
+  <text x="180" y="134" text-anchor="middle" font-size="11" fill="#1a365d">Raw PCAP / Live Traffic</text>
+  <rect x="300" y="112" width="180" height="34" rx="7" fill="#bee3f8" stroke="#63b3ed" stroke-width="1"/>
+  <text x="390" y="134" text-anchor="middle" font-size="11" fill="#1a365d">CICFlowMeter</text>
+  <rect x="500" y="112" width="220" height="34" rx="7" fill="#bee3f8" stroke="#63b3ed" stroke-width="1"/>
+  <text x="610" y="134" text-anchor="middle" font-size="11" fill="#1a365d">Direct CSV Upload (78 features)</text>
+  <line x1="280" y1="129" x2="296" y2="129" stroke="#3182ce" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+  <line x1="480" y1="129" x2="496" y2="129" stroke="#3182ce" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+  <line x1="450" y1="160" x2="450" y2="178" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="465" y="172" font-size="10" fill="#718096">Feature Vectors</text>
+  <!-- PREPROCESSING -->
+  <rect x="60" y="182" width="780" height="80" rx="10" fill="#f0fff4" stroke="#38a169" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="90" y="207" font-size="11" font-weight="700" fill="#276749" letter-spacing="1">PREPROCESSING PIPELINE</text>
+  <rect x="80" y="214" width="160" height="34" rx="7" fill="#c6f6d5" stroke="#68d391" stroke-width="1"/>
+  <text x="160" y="236" text-anchor="middle" font-size="11" fill="#1c4532">Drop NaN / Inf</text>
+  <rect x="260" y="214" width="160" height="34" rx="7" fill="#c6f6d5" stroke="#68d391" stroke-width="1"/>
+  <text x="340" y="236" text-anchor="middle" font-size="11" fill="#1c4532">MinMax Scaling</text>
+  <rect x="440" y="214" width="180" height="34" rx="7" fill="#c6f6d5" stroke="#68d391" stroke-width="1"/>
+  <text x="530" y="236" text-anchor="middle" font-size="11" fill="#1c4532">SMOTE Balancing</text>
+  <rect x="640" y="214" width="180" height="34" rx="7" fill="#c6f6d5" stroke="#68d391" stroke-width="1"/>
+  <text x="730" y="236" text-anchor="middle" font-size="11" fill="#1c4532">Label Encoding (14 classes)</text>
+  <line x1="240" y1="231" x2="256" y2="231" stroke="#38a169" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="420" y1="231" x2="436" y2="231" stroke="#38a169" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="620" y1="231" x2="636" y2="231" stroke="#38a169" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="450" y1="262" x2="450" y2="280" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="465" y="274" font-size="10" fill="#718096">Cleaned · Scaled · Balanced</text>
+  <!-- ML ENGINE -->
+  <rect x="60" y="284" width="780" height="100" rx="10" fill="#fff5f5" stroke="#e53e3e" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="90" y="309" font-size="11" font-weight="700" fill="#c53030" letter-spacing="1">ML DETECTION ENGINE</text>
+  <rect x="80" y="316" width="210" height="52" rx="8" fill="#fed7d7" stroke="#fc8181" stroke-width="1"/>
+  <text x="185" y="337" text-anchor="middle" font-size="12" font-weight="600" fill="#742a2a">Random Forest</text>
+  <text x="185" y="353" text-anchor="middle" font-size="10" fill="#9b2c2c">200 estimators · max_depth=None</text>
+  <text x="185" y="365" text-anchor="middle" font-size="10" fill="#9b2c2c">Macro F1: 0.997 · FPR: 0.28%</text>
+  <rect x="315" y="316" width="210" height="52" rx="8" fill="#fed7d7" stroke="#fc8181" stroke-width="1"/>
+  <text x="420" y="337" text-anchor="middle" font-size="12" font-weight="600" fill="#742a2a">XGBoost</text>
+  <text x="420" y="353" text-anchor="middle" font-size="10" fill="#9b2c2c">300 estimators · lr=0.05</text>
+  <text x="420" y="365" text-anchor="middle" font-size="10" fill="#9b2c2c">Macro F1: 0.994 · FPR: 0.21%</text>
+  <rect x="550" y="316" width="272" height="52" rx="8" fill="#fed7d7" stroke="#fc8181" stroke-width="1"/>
+  <text x="686" y="337" text-anchor="middle" font-size="12" font-weight="600" fill="#742a2a">LSTM (Sequential)</text>
+  <text x="686" y="353" text-anchor="middle" font-size="10" fill="#9b2c2c">128→64 units · Dropout 0.3</text>
+  <text x="686" y="365" text-anchor="middle" font-size="10" fill="#9b2c2c">Macro F1: 0.981 · FPR: 0.51%</text>
+  <text x="450" y="396" text-anchor="middle" font-size="10" fill="#c53030">↓ Majority Vote / Ensemble Stacking → Attack Label + Confidence Score</text>
+  <line x1="450" y1="384" x2="450" y2="404" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <!-- XAI LAYER -->
+  <rect x="60" y="408" width="780" height="90" rx="10" fill="#faf5ff" stroke="#805ad5" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="90" y="433" font-size="11" font-weight="700" fill="#553c9a" letter-spacing="1">XAI EXPLAINABILITY LAYER — SHAP</text>
+  <rect x="80" y="440" width="255" height="44" rx="8" fill="#e9d8fd" stroke="#b794f4" stroke-width="1"/>
+  <text x="207" y="457" text-anchor="middle" font-size="11" font-weight="600" fill="#322659">TreeExplainer (RF / XGBoost)</text>
+  <text x="207" y="474" text-anchor="middle" font-size="10" fill="#44337a">Fast exact SHAP · per-flow · ms latency</text>
+  <rect x="355" y="440" width="250" height="44" rx="8" fill="#e9d8fd" stroke="#b794f4" stroke-width="1"/>
+  <text x="480" y="457" text-anchor="middle" font-size="11" font-weight="600" fill="#322659">DeepExplainer (LSTM)</text>
+  <text x="480" y="474" text-anchor="middle" font-size="10" fill="#44337a">Background-sample SHAP approx.</text>
+  <rect x="625" y="440" width="195" height="44" rx="8" fill="#e9d8fd" stroke="#b794f4" stroke-width="1"/>
+  <text x="722" y="457" text-anchor="middle" font-size="11" font-weight="600" fill="#322659">Explanation Outputs</text>
+  <text x="722" y="474" text-anchor="middle" font-size="10" fill="#44337a">Waterfall · Beeswarm · Force Plot</text>
+  <line x1="450" y1="498" x2="450" y2="516" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="465" y="510" font-size="10" fill="#718096">Explanation Object</text>
+  <!-- DASHBOARD -->
+  <rect x="60" y="520" width="780" height="90" rx="10" fill="#fffaf0" stroke="#dd6b20" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="90" y="545" font-size="11" font-weight="700" fill="#9c4221" letter-spacing="1">STREAMLIT DASHBOARD</text>
+  <rect x="80" y="552" width="165" height="44" rx="8" fill="#feebc8" stroke="#f6ad55" stroke-width="1"/>
+  <text x="162" y="569" text-anchor="middle" font-size="10" font-weight="600" fill="#7b341e">Live Detection</text>
+  <text x="162" y="585" text-anchor="middle" font-size="9" fill="#9c4221">Upload · Infer · SHAP Waterfall</text>
+  <rect x="265" y="552" width="165" height="44" rx="8" fill="#feebc8" stroke="#f6ad55" stroke-width="1"/>
+  <text x="347" y="569" text-anchor="middle" font-size="10" font-weight="600" fill="#7b341e">Model Comparison</text>
+  <text x="347" y="585" text-anchor="middle" font-size="9" fill="#9c4221">ROC · F1 · Confusion Matrix</text>
+  <rect x="450" y="552" width="165" height="44" rx="8" fill="#feebc8" stroke="#f6ad55" stroke-width="1"/>
+  <text x="532" y="569" text-anchor="middle" font-size="10" font-weight="600" fill="#7b341e">Global SHAP</text>
+  <text x="532" y="585" text-anchor="middle" font-size="9" fill="#9c4221">Beeswarm · Dependence Plots</text>
+  <rect x="635" y="552" width="185" height="44" rx="8" fill="#feebc8" stroke="#f6ad55" stroke-width="1"/>
+  <text x="727" y="569" text-anchor="middle" font-size="10" font-weight="600" fill="#7b341e">Export Report</text>
+  <text x="727" y="585" text-anchor="middle" font-size="9" fill="#9c4221">PDF Alert Report · ReportLab</text>
+  <line x1="450" y1="610" x2="450" y2="628" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <!-- DEPLOY -->
+  <rect x="260" y="632" width="380" height="46" rx="10" fill="#e2e8f0" stroke="#718096" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="450" y="652" text-anchor="middle" font-size="11" font-weight="700" fill="#2d3748">DOCKER DEPLOYMENT</text>
+  <text x="450" y="668" text-anchor="middle" font-size="10" fill="#4a5568">docker-compose up --build  →  http://localhost:8501</text>
+  <!-- Legend -->
+  <rect x="60" y="692" width="780" height="22" rx="6" fill="#edf2f7" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="90" y="707" font-size="9" fill="#718096">Input (Blue)   Preprocessing (Green)   Detection (Red)   XAI (Purple)   Dashboard (Orange)   Deploy (Gray)</text>
+  <text x="800" y="707" text-anchor="end" font-size="9" fill="#a0aec0">Chandra Sekhar Chakraborty · April 2026</text>
+</svg>
