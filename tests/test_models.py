@@ -12,8 +12,8 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from src.models.random_forest import train_random_forest
-from src.models.xgboost_model import train_xgboost
+from src.models.random_forest import train_random_forest  # noqa: E402
+from src.models.xgboost_model import train_xgboost  # noqa: E402
 
 N_SAMPLES = 300
 N_FEATURES = 20

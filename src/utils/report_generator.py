@@ -45,20 +45,20 @@ log = logging.getLogger(__name__)
 
 # Severity colour map matching MITRE ATT&CK severity levels
 _SEVERITY_COLOURS: dict[str, tuple[float, float, float]] = {
-    "DDoS":                         (0.85, 0.15, 0.15),
-    "DoS Hulk":                     (0.85, 0.15, 0.15),
-    "DoS GoldenEye":                (0.85, 0.15, 0.15),
-    "DoS Slowloris":                (0.85, 0.35, 0.10),
-    "DoS Slowhttptest":             (0.85, 0.35, 0.10),
-    "FTP-Patator":                  (0.90, 0.55, 0.10),
-    "SSH-Patator":                  (0.90, 0.55, 0.10),
-    "PortScan":                     (0.95, 0.75, 0.10),
-    "Web Attack -- Brute Force":    (0.85, 0.20, 0.10),
-    "Web Attack -- XSS":            (0.85, 0.20, 0.10),
-    "Web Attack -- Sql Injection":  (0.85, 0.15, 0.15),
-    "Infiltration":                 (0.70, 0.10, 0.10),
-    "Bot":                          (0.55, 0.10, 0.55),
-    "BENIGN":                       (0.20, 0.65, 0.20),
+    "DDoS": (0.85, 0.15, 0.15),
+    "DoS Hulk": (0.85, 0.15, 0.15),
+    "DoS GoldenEye": (0.85, 0.15, 0.15),
+    "DoS Slowloris": (0.85, 0.35, 0.10),
+    "DoS Slowhttptest": (0.85, 0.35, 0.10),
+    "FTP-Patator": (0.90, 0.55, 0.10),
+    "SSH-Patator": (0.90, 0.55, 0.10),
+    "PortScan": (0.95, 0.75, 0.10),
+    "Web Attack -- Brute Force": (0.85, 0.20, 0.10),
+    "Web Attack -- XSS": (0.85, 0.20, 0.10),
+    "Web Attack -- Sql Injection": (0.85, 0.15, 0.15),
+    "Infiltration": (0.70, 0.10, 0.10),
+    "Bot": (0.55, 0.10, 0.55),
+    "BENIGN": (0.20, 0.65, 0.20),
 }
 
 
@@ -123,40 +123,42 @@ def generate_report(
     summary_data = [["Flow ID", "Prediction", "Confidence", "Timestamp"]]
     for a in alerts:
         summary_data.append([
-            str(a.get("flow_id", "—")),
-            str(a.get("prediction", "—")),
+            str(a.get("flow_id", "\u2014")),
+            str(a.get("prediction", "\u2014")),
             f"{a.get('confidence', 0) * 100:.1f}%",
-            str(a.get("timestamp", "—")),
+            str(a.get("timestamp", "\u2014")),
         ])
 
     summary_table = Table(summary_data, colWidths=[2.5 * cm, 5 * cm, 3.5 * cm, 5.5 * cm])
     summary_table.setStyle(TableStyle([
-        ("BACKGROUND",  (0, 0), (-1, 0),  colors.HexColor("#2d3748")),
-        ("TEXTCOLOR",   (0, 0), (-1, 0),  colors.white),
-        ("FONTSIZE",    (0, 0), (-1, -1), 8),
-        ("FONTNAME",    (0, 0), (-1, 0),  "Helvetica-Bold"),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2d3748")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#f7f8fa"), colors.white]),
-        ("GRID",        (0, 0), (-1, -1),  0.5, colors.HexColor("#e2e8f0")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
         ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING",(0, 0), (-1, -1), 6),
-        ("TOPPADDING",  (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING",(0,0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
     story.append(summary_table)
     story.append(Spacer(1, 0.5 * cm))
 
     # ---- Per-alert detail ----
     for alert in alerts:
-        fid   = alert.get("flow_id", "?")
-        pred  = alert.get("prediction", "Unknown")
-        conf  = alert.get("confidence", 0.0)
+        fid = alert.get("flow_id", "?")
+        pred = alert.get("prediction", "Unknown")
+        conf = alert.get("confidence", 0.0)
         feats = alert.get("top_features", [])
-        ts    = alert.get("timestamp", "")
+        ts = alert.get("timestamp", "")
 
         alert_color = _severity_color(pred)
         heading_para = Paragraph(
-            f"Alert #{fid} — <font color='{alert_color.hexval() if hasattr(alert_color, 'hexval') else 'red'}'>"
-            f"{pred}</font>  ({conf*100:.1f}% confidence)  <font size=8 color='grey'>{ts}</font>",
+            f"Alert #{fid} \u2014 "
+            f"<font color='{alert_color.hexval() if hasattr(alert_color, 'hexval') else 'red'}'>"
+            f"{pred}</font>  ({conf * 100:.1f}% confidence)"
+            f"  <font size=8 color='grey'>{ts}</font>",
             heading_style,
         )
         story.append(heading_para)
@@ -164,26 +166,26 @@ def generate_report(
         if feats:
             feat_data = [["Feature", "SHAP Contribution", "Direction"]]
             for ft in feats:
-                name = ft.get("name", "—")
-                sv   = ft.get("shap", 0.0)
-                direction = "→ attack" if sv > 0 else "← benign"
+                name = ft.get("name", "\u2014")
+                sv = ft.get("shap", 0.0)
+                direction = "\u2192 attack" if sv > 0 else "\u2190 benign"
                 feat_data.append([name, f"{sv:+.4f}", direction])
 
             feat_table = Table(feat_data, colWidths=[8 * cm, 4 * cm, 4.5 * cm])
             feat_table.setStyle(TableStyle([
-                ("BACKGROUND",   (0, 0), (-1, 0),  colors.HexColor("#4a5568")),
-                ("TEXTCOLOR",    (0, 0), (-1, 0),  colors.white),
-                ("FONTSIZE",     (0, 0), (-1, -1), 8),
-                ("FONTNAME",     (0, 0), (-1, 0),  "Helvetica-Bold"),
-                ("ROWBACKGROUNDS",(0,1), (-1, -1), [colors.HexColor("#f7f8fa"), colors.white]),
-                ("GRID",         (0, 0), (-1, -1),  0.5, colors.HexColor("#e2e8f0")),
-                ("LEFTPADDING",  (0, 0), (-1, -1), 6),
-                ("TOPPADDING",   (0, 0), (-1, -1), 3),
-                ("BOTTOMPADDING",(0, 0), (-1, -1), 3),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4a5568")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#f7f8fa"), colors.white]),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
             ]))
             story.append(feat_table)
         story.append(Spacer(1, 0.3 * cm))
 
     doc.build(story)
-    log.info("PDF report saved → %s  (%d alerts)", output_path, len(alerts))
+    log.info("PDF report saved \u2192 %s  (%d alerts)", output_path, len(alerts))
     return output_path

@@ -12,9 +12,9 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from src.preprocessing.cleaner import clean_dataframe
-from src.preprocessing.scaler import apply_scaler, fit_scaler
-from src.preprocessing.smote_balancer import apply_smote
+from src.preprocessing.cleaner import clean_dataframe  # noqa: E402
+from src.preprocessing.scaler import apply_scaler, fit_scaler  # noqa: E402
+from src.preprocessing.smote_balancer import apply_smote  # noqa: E402
 
 
 # ─── Fixtures ─────────────────────────────────────────────

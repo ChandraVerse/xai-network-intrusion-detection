@@ -11,8 +11,8 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from src.explainability.shap_explainer import explain_tree
-from src.models.random_forest import train_random_forest
+from src.explainability.shap_explainer import explain_tree  # noqa: E402
+from src.models.random_forest import train_random_forest  # noqa: E402
 
 N_SAMPLES = 200
 N_FEATURES = 15
