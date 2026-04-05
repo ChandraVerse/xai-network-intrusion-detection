@@ -1,11 +1,18 @@
 """train_artifacts.py
 Runs inside GitHub Actions (ubuntu-latest, Python 3.11).
 Trains RF, XGBoost, and a tiny LSTM on synthetic CICIDS-2017 data.
-All artifacts are kept small enough to commit directly to the repo:
-  - RF  .pkl  (joblib compress=9)  ~  200-400 KB
-  - XGB .pkl  (joblib compress=9)  ~   50-150 KB
-  - LSTM SavedModel.tar.gz         ~  400-800 KB
-  - processed data as .npz         ~   50-200 KB total
+
+Fixes vs v1:
+  - LSTM saved as /tmp/lstm.keras (TF>=2.16 requires .keras extension)
+    then compressed to models/lstm_model.tar.gz
+  - RF n_estimators reduced to 50, max_depth=8 to keep .pkl < 500 KB
+  - XGB unchanged (already passing, 427 KB)
+
+Target artifact sizes:
+  RF   .pkl  (joblib zlib-9)  ~  150-400 KB
+  XGB  .pkl  (joblib zlib-9)  ~   50-150 KB
+  LSTM .tar.gz (keras+gzip)   ~  300-700 KB
+  data .npz   (compressed)    ~   50-200 KB total
 """
 
 import json, os, tarfile, time, warnings
@@ -24,13 +31,13 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import EarlyStopping
 
 warnings.filterwarnings("ignore")
-os.makedirs("models", exist_ok=True)
-os.makedirs("data/processed", exist_ok=True)
-os.makedirs("data/samples", exist_ok=True)
+os.makedirs("models",          exist_ok=True)
+os.makedirs("data/processed",  exist_ok=True)
+os.makedirs("data/samples",    exist_ok=True)
 os.makedirs(".github/scripts", exist_ok=True)
 
 print("=" * 60)
-print("XAI-NIDS  |  GitHub Actions Artifact Bootstrap")
+print("XAI-NIDS  |  GitHub Actions Artifact Bootstrap  (v2)")
 print(f"TF version : {tf.__version__}")
 print(f"XGB version: {xgb.__version__}")
 print("=" * 60)
@@ -113,7 +120,6 @@ def metrics_dict(name, y_true, y_pred, inf_ms, train_s):
 
 # ────────────────────────────────────────────────────────────────
 # STEP 1 — Generate data  (800 train / 160 test per class)
-# Totals: 11 200 train rows, 2 240 test rows, ~6 MB uncompressed
 # ────────────────────────────────────────────────────────────────
 print("\n[1/5] Generating synthetic data ...")
 rng = np.random.default_rng(42)
@@ -140,7 +146,7 @@ X_te_sc = scaler.transform(X_te).astype(np.float32)
 print(f"      Train {X_tr_sc.shape}  |  Test {X_te_sc.shape}")
 
 # ────────────────────────────────────────────────────────────────
-# STEP 2 — Save processed data as compressed .npz  (~10x smaller)
+# STEP 2 — Save processed data as compressed .npz
 # ────────────────────────────────────────────────────────────────
 print("\n[2/5] Saving compressed processed data ...")
 np.savez_compressed("data/processed/X_train.npz", data=X_tr_sc)
@@ -154,7 +160,7 @@ label_map = {str(int(i)): cls for i,cls in enumerate(le.classes_)}
 with open("data/processed/label_map.json","w") as f: json.dump(label_map, f, indent=2)
 print("      Saved -> data/processed/")
 
-# Sample CSV for dashboard demo (200 rows, stratified)
+# Sample CSV for dashboard demo (stratified ~200 rows)
 df_sample = df_te.groupby("Label", group_keys=False).apply(
     lambda g: g.sample(min(15, len(g)), random_state=42)
 ).sample(frac=1, random_state=42).reset_index(drop=True)
@@ -162,17 +168,18 @@ df_sample["label_encoded"] = le.transform(df_sample["Label"].values)
 df_sample.to_csv("data/samples/sample_200rows.csv", index=False)
 print(f"      Sample CSV saved ({len(df_sample)} rows) -> data/samples/sample_200rows.csv")
 
-# label_map in models/ too (needed by dashboard)
 with open("models/label_map.json","w") as f: json.dump(label_map, f, indent=2)
 
 # ────────────────────────────────────────────────────────────────
-# STEP 3 — Random Forest  (100 trees, max_features="sqrt")
-# Compressed .pkl  ~200-400 KB
+# STEP 3 — Random Forest
+# FIX: n_estimators=50, max_depth=8  ->  keeps .pkl < 500 KB
 # ────────────────────────────────────────────────────────────────
 print("\n[3/5] Training Random Forest ...")
 t0=time.time()
 rf = RandomForestClassifier(
-    n_estimators=100, max_depth=12, min_samples_leaf=3,
+    n_estimators=50,     # reduced from 100 to shrink .pkl size
+    max_depth=8,         # reduced from 12
+    min_samples_leaf=5,  # slightly higher to prune more aggressively
     max_features="sqrt", n_jobs=-1, random_state=42, class_weight="balanced"
 )
 rf.fit(X_tr_sc, y_tr)
@@ -187,8 +194,7 @@ size_rf = Path("models/random_forest.pkl").stat().st_size // 1024
 print(f"      Acc={m['accuracy']}  F1={m['macro_f1']}  size={size_rf}KB -> models/random_forest.pkl")
 
 # ────────────────────────────────────────────────────────────────
-# STEP 4 — XGBoost  (200 trees, early stopping)
-# Compressed .pkl  ~50-150 KB
+# STEP 4 — XGBoost  (unchanged — was already passing)
 # ────────────────────────────────────────────────────────────────
 print("\n[4/5] Training XGBoost ...")
 t0=time.time()
@@ -211,12 +217,13 @@ size_xgb = Path("models/xgboost_model.pkl").stat().st_size // 1024
 print(f"      Acc={m['accuracy']}  F1={m['macro_f1']}  size={size_xgb}KB -> models/xgboost_model.pkl")
 
 # ────────────────────────────────────────────────────────────────
-# STEP 5 — LSTM  (tiny architecture, saved as .tar.gz)
-# SavedModel tar.gz  ~400-800 KB
+# STEP 5 — LSTM
+# FIX: save to /tmp/lstm_nids.keras  (TF>=2.16 requires .keras ext)
+#      then tar.gz that single file -> models/lstm_model.tar.gz
 # ────────────────────────────────────────────────────────────────
 print("\n[5/5] Training LSTM ...")
 TIME_STEPS = 5
-X_tr_lstm = np.stack([X_tr_sc]*TIME_STEPS, axis=1)  # (n, 5, 78)
+X_tr_lstm = np.stack([X_tr_sc]*TIME_STEPS, axis=1)   # (n, 5, 78)
 X_te_lstm = np.stack([X_te_sc]*TIME_STEPS, axis=1)
 y_tr_cat  = to_categorical(y_tr, N_CLASSES)
 y_te_cat  = to_categorical(y_te, N_CLASSES)
@@ -239,14 +246,16 @@ model.fit(
     callbacks=[EarlyStopping(patience=4, restore_best_weights=True)]
 )
 tt=time.time()-t0
-t0=time.time(); p=np.argmax(model.predict(X_te_lstm,verbose=0),axis=1); it=(time.time()-t0)/len(y_te)*1000
+t0=time.time()
+p=np.argmax(model.predict(X_te_lstm,verbose=0),axis=1)
+it=(time.time()-t0)/len(y_te)*1000
 m=metrics_dict("LSTM",y_te,p,it,tt)
 
-# Save as SavedModel -> tar.gz for compact git storage
-save_dir = "/tmp/lstm_saved_model"
-model.save(save_dir)
+# FIX: use .keras extension — required by TF 2.16+
+keras_tmp = "/tmp/lstm_nids.keras"
+model.save(keras_tmp)
 with tarfile.open("models/lstm_model.tar.gz", "w:gz") as tar:
-    tar.add(save_dir, arcname="lstm_saved_model")
+    tar.add(keras_tmp, arcname="lstm_nids.keras")
 with open("models/lstm_metrics.json","w") as f: json.dump(m,f,indent=2)
 size_lstm = Path("models/lstm_model.tar.gz").stat().st_size // 1024
 print(f"      Acc={m['accuracy']}  F1={m['macro_f1']}  size={size_lstm}KB -> models/lstm_model.tar.gz")
@@ -264,7 +273,7 @@ summary = {
     "n_features": N_FEATURES,
     "n_train_samples": int(len(y_tr)),
     "n_test_samples":  int(len(y_te)),
-    "generated_by": "train_artifacts.py via GitHub Actions",
+    "generated_by": "train_artifacts.py v2 via GitHub Actions",
 }
 with open("models/metrics_summary.json","w") as f: json.dump(summary,f,indent=2)
 
