@@ -1,0 +1,26 @@
+{
+  "top_features": [
+    "Flow Bytes/s",
+    "Fwd Packet Length Max",
+    "Flow Packets/s",
+    "ACK Flag Count",
+    "Flow Duration",
+    "SYN Flag Count",
+    "Flow IAT Mean",
+    "Fwd Avg Bulk Rate",
+    "Total Length of Fwd Packets",
+    "Flow IAT Max",
+    "RST Flag Count",
+    "PSH Flag Count",
+    "act_data_pkt_fwd",
+    "Bwd Header Length",
+    "Fwd PSH Flags",
+    "Fwd Avg Packets/Bulk",
+    "Active Std",
+    "Fwd Header Length",
+    "Fwd Packets/s",
+    "Flow IAT Std"
+  ],
+  "method": "SHAP TreeExplainer consensus (RF + XGBoost)",
+  "n_top": 20
+}
