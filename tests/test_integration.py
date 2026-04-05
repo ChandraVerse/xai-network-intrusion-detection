@@ -83,8 +83,9 @@ class TestModelPipeline:
     def test_xgboost_train_predict(self, X_full, y_full):
         pytest.importorskip("xgboost")
         import xgboost as xgb
+        # use_label_encoder was removed in XGBoost >= 2.0
         clf = xgb.XGBClassifier(
-            n_estimators=10, max_depth=3, use_label_encoder=False,
+            n_estimators=10, max_depth=3,
             eval_metric="mlogloss", random_state=42, verbosity=0
         )
         clf.fit(X_full, y_full)
@@ -114,7 +115,6 @@ class TestSHAPPipeline:
         explainer = shap.TreeExplainer(fitted_rf_small)
         shap_values = explainer.shap_values(X_small[:10])
         if isinstance(shap_values, list):
-            # multi-class: list of [n_samples, n_features] arrays
             assert all(sv.shape == (10, X_small.shape[1]) for sv in shap_values)
         else:
             assert shap_values.shape[0] == 10
@@ -274,22 +274,18 @@ class TestFullPipelineChain:
     def test_end_to_end_rf_shap_metrics(self, X_full, y_full, class_names):
         shap = pytest.importorskip("shap")
 
-        # Stage 1: scale
         sc = MinMaxScaler()
         X_scaled = sc.fit_transform(X_full)
 
-        # Stage 2: train
         clf = RandomForestClassifier(
             n_estimators=10, max_depth=5, random_state=42
         )
         clf.fit(X_scaled, y_full)
 
-        # Stage 3: SHAP
         explainer  = shap.TreeExplainer(clf)
         shap_vals  = explainer.shap_values(X_scaled[:10])
         assert shap_vals is not None
 
-        # Stage 4: predict + metrics
         from src.utils import compute_metrics
         preds = clf.predict(X_scaled)
         m = compute_metrics(y_full, preds, class_names)
@@ -300,17 +296,14 @@ class TestFullPipelineChain:
         pytest.importorskip("lime")
         from lime.lime_tabular import LimeTabularExplainer
 
-        # Stage 1: scale
         sc = MinMaxScaler()
         X_scaled = sc.fit_transform(X_full)
 
-        # Stage 2: train
         clf = RandomForestClassifier(
             n_estimators=10, max_depth=5, random_state=42
         )
         clf.fit(X_scaled, y_full)
 
-        # Stage 4: LIME on a single instance
         le = LabelEncoder().fit(y_full)
         cn = [str(c) for c in le.classes_]
         exp_obj = LimeTabularExplainer(
@@ -322,7 +315,6 @@ class TestFullPipelineChain:
         )
         assert len(exp.as_list()) > 0
 
-        # Stage 5: metrics
         from src.utils import compute_metrics
         preds = clf.predict(X_scaled)
         m = compute_metrics(y_full, preds, class_names)

@@ -16,6 +16,7 @@ tensorflow-cpu>=2.13.0
 
 # Explainability
 shap>=0.44.0
+lime>=0.2.0
 
 # Visualization (headless-safe)
 matplotlib>=3.7.0

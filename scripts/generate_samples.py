@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import math
 import os
 import sys
 from pathlib import Path
@@ -81,20 +82,20 @@ assert len(CLASSES) == 14, f"Expected 14 classes, got {len(CLASSES)}"
 
 # Per-class mean offsets so each class is statistically distinguishable
 _CLASS_OFFSETS: dict[str, float] = {
-    "BENIGN":                  0.0,
-    "DDoS":                    0.6,
-    "DoS Hulk":                0.5,
-    "DoS GoldenEye":           0.4,
-    "DoS Slowloris":           0.35,
-    "DoS Slowhttptest":        0.3,
-    "PortScan":                0.7,
-    "FTP-Patator":             0.55,
-    "SSH-Patator":             0.45,
-    "Bot":                     0.25,
-    "Infiltration":            0.15,
+    "BENIGN":                   0.0,
+    "DDoS":                     0.6,
+    "DoS Hulk":                 0.5,
+    "DoS GoldenEye":            0.4,
+    "DoS Slowloris":            0.35,
+    "DoS Slowhttptest":         0.3,
+    "PortScan":                 0.7,
+    "FTP-Patator":              0.55,
+    "SSH-Patator":              0.45,
+    "Bot":                      0.25,
+    "Infiltration":             0.15,
     "Web Attack - Brute Force": 0.5,
-    "Web Attack - XSS":        0.4,
-    "Web Attack - SQLi":       0.35,
+    "Web Attack - XSS":         0.4,
+    "Web Attack - SQLi":        0.35,
 }
 
 
@@ -113,7 +114,7 @@ def gen_class_samples(
     and clipped to [0, 1] so the result mimics MinMax-scaled data.
 
     Args:
-        cls: Class name — must be in CLASSES.
+        cls: Class name -- must be in CLASSES.
         n:   Number of rows to generate.
         rng: Seeded numpy random Generator for reproducibility.
 
@@ -130,36 +131,64 @@ def gen_class_samples(
 
 
 # ---------------------------------------------------------------------------
-# CLI: generate data/samples/sample_100.csv
+# CSV writer
 # ---------------------------------------------------------------------------
 
-def _generate_csv(out_path: Path, rows_per_class: int = 8) -> None:
-    """Write a balanced synthetic CSV with all 14 classes."""
+def _generate_csv(out_path: Path, total_rows: int = 112) -> None:
+    """Write a balanced synthetic CSV with all 14 classes.
+
+    Output schema: 78 feature columns + 'Label' = 79 columns total.
+    Rows are distributed as evenly as possible across all 14 classes
+    so that the total is exactly *total_rows*.
+    """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(42)
 
-    header = FEATURE_NAMES + ["Label", "label_encoded"]
-    with open(out_path, "w", newline="") as fh:
+    n_classes = len(CLASSES)
+    base = total_rows // n_classes
+    remainder = total_rows % n_classes
+    # distribute remainder across the first classes
+    counts = [base + (1 if i < remainder else 0) for i in range(n_classes)]
+
+    # 79 columns: 78 features + Label
+    header = FEATURE_NAMES + ["Label"]
+    with open(out_path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
         writer.writerow(header)
-        for cls_idx, cls in enumerate(CLASSES):
-            rows = gen_class_samples(cls, rows_per_class, rng)
+        for cls, n in zip(CLASSES, counts):
+            rows = gen_class_samples(cls, n, rng)
             for row in rows:
-                writer.writerow([f"{v:.6f}" for v in row] + [cls, cls_idx])
+                writer.writerow([f"{v:.6f}" for v in row] + [cls])
 
-    total = rows_per_class * len(CLASSES)
-    print(f"Generated {total} rows -> {out_path}")
+    print(f"Generated {total_rows} rows x {len(header)} cols -> {out_path}")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate synthetic CICIDS-2017 sample CSV")
+    parser = argparse.ArgumentParser(
+        description="Generate synthetic CICIDS-2017 sample CSV"
+    )
     parser.add_argument(
         "--out", default="data/samples/sample_100.csv",
         help="Output CSV path (default: data/samples/sample_100.csv)",
     )
-    parser.add_argument(
-        "--rows-per-class", type=int, default=8,
-        help="Rows per class (default: 8 -> 112 total rows)",
+    # --rows is the canonical name; --rows-per-class kept as alias for
+    # backwards-compatibility with any local scripts.
+    rows_group = parser.add_mutually_exclusive_group()
+    rows_group.add_argument(
+        "--rows", type=int, default=None,
+        help="Total number of rows to generate (distributed across 14 classes).",
+    )
+    rows_group.add_argument(
+        "--rows-per-class", type=int, default=None,
+        help="Rows per class (14 classes total). Legacy alias for --rows.",
     )
     args = parser.parse_args()
-    _generate_csv(Path(args.out), args.rows_per_class)
+
+    if args.rows is not None:
+        total = args.rows
+    elif args.rows_per_class is not None:
+        total = args.rows_per_class * len(CLASSES)
+    else:
+        total = 112  # default: 8 per class
+
+    _generate_csv(Path(args.out), total)
