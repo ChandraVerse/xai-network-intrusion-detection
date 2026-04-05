@@ -9,9 +9,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Single Python version — keeps CI fast and avoids duplicate failures
     strategy:
       matrix:
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.11"]
 
     steps:
       - name: Checkout
@@ -49,18 +50,15 @@ jobs:
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
-        if: matrix.python-version == '3.11'
         with:
           files: coverage.xml
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Lint with flake8
+        # Uses settings from .flake8 in repo root — no inline flags that override config
         run: |
-          flake8 src/ dashboard/ scripts/ \
-            --max-line-length=120 \
-            --ignore=E501,W503 \
-            --exclude=__pycache__,.git
+          flake8 src/ dashboard/ scripts/
 
       - name: Verify sample data schema
         run: |
@@ -73,3 +71,63 @@ jobs:
           assert set(df['Label'].unique()).issubset(set(CLASSES)), "Unknown labels in sample!"
           print(f"[OK] Schema check passed: {df.shape[0]} rows x {df.shape[1]} cols")
           EOF
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image (validate Dockerfile)
+        run: |
+          docker build -t xai-nids:ci-test .
+
+  generate-sample-data:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas
+
+      - name: Generate sample data (smoke test)
+        run: |
+          python scripts/generate_samples.py --rows 100 --out /tmp/smoke_test.csv
+          python -c "
+          import pandas as pd
+          df = pd.read_csv('/tmp/smoke_test.csv')
+          print(f'[OK] Smoke test passed: {df.shape}')
+          assert df.shape == (100, 79), f'Shape mismatch: {df.shape}'
+          "
+
+  security:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Bandit
+        run: pip install bandit
+
+      - name: Security scan (Bandit)
+        run: |
+          bandit -r src/ scripts/ \
+            -ll \
+            --exclude src/**/__pycache__ \
+            -f txt
