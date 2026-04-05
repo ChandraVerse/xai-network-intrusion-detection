@@ -1,0 +1,11 @@
+{
+  "dataset": "CICIDS-2017",
+  "total_samples": 2830743,
+  "features": 78,
+  "label_column": "Label",
+  "attack_classes": 14,
+  "benign_ratio": 0.8316,
+  "attack_ratio": 0.1684,
+  "generated_at": "2026-04-05",
+  "note": "Metadata stub — run notebooks/01_eda.ipynb on full CICIDS-2017 dataset to regenerate"
+}
