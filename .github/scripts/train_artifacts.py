@@ -1,18 +1,18 @@
-"""train_artifacts.py
+"""train_artifacts.py  v3
 Runs inside GitHub Actions (ubuntu-latest, Python 3.11).
 Trains RF, XGBoost, and a tiny LSTM on synthetic CICIDS-2017 data.
 
-Fixes vs v1:
-  - LSTM saved as /tmp/lstm.keras (TF>=2.16 requires .keras extension)
-    then compressed to models/lstm_model.tar.gz
-  - RF n_estimators reduced to 50, max_depth=8 to keep .pkl < 500 KB
-  - XGB unchanged (already passing, 427 KB)
+Changes vs v2:
+  - LSTM: model.save("/tmp/lstm_nids.keras") — .keras ext required by TF>=2.16
+  - RF:   n_estimators=50, max_depth=8, min_samples_leaf=5  => ~300-450 KB
+  - XGB:  unchanged (was already passing at 427 KB)
+  - workflow commit step uses `git add -f` to bypass .gitignore
 
-Target artifact sizes:
-  RF   .pkl  (joblib zlib-9)  ~  150-400 KB
-  XGB  .pkl  (joblib zlib-9)  ~   50-150 KB
-  LSTM .tar.gz (keras+gzip)   ~  300-700 KB
-  data .npz   (compressed)    ~   50-200 KB total
+Artifact size targets:
+  RF   .pkl  (joblib zlib-9)   150-450 KB
+  XGB  .pkl  (joblib zlib-9)    50-150 KB
+  LSTM .tar.gz (.keras gzipped) 300-700 KB
+  data .npz  (compressed)       50-200 KB total
 """
 
 import json, os, tarfile, time, warnings
@@ -25,42 +25,49 @@ from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
 import xgboost as xgb
 import tensorflow as tf
+from tensorflow import keras
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import EarlyStopping
 
 warnings.filterwarnings("ignore")
-os.makedirs("models",          exist_ok=True)
-os.makedirs("data/processed",  exist_ok=True)
-os.makedirs("data/samples",    exist_ok=True)
-os.makedirs(".github/scripts", exist_ok=True)
+for d in ["models", "data/processed", "data/samples", ".github/scripts"]:
+    os.makedirs(d, exist_ok=True)
 
 print("=" * 60)
-print("XAI-NIDS  |  GitHub Actions Artifact Bootstrap  (v2)")
-print(f"TF version : {tf.__version__}")
-print(f"XGB version: {xgb.__version__}")
+print("XAI-NIDS  |  GitHub Actions Artifact Bootstrap  v3")
+print(f"TF  version : {tf.__version__}")
+print(f"XGB version : {xgb.__version__}")
 print("=" * 60)
 
-# ────────────────────────────────────────────────────────────────
-# Feature schema  (78 CICIDS-2017 features)
-# ────────────────────────────────────────────────────────────────
+# ── Feature schema (78 CICIDS-2017 features) ─────────────────────────────────
 FEATURE_NAMES = [
     "Flow Duration","Total Fwd Packets","Total Backward Packets",
     "Total Length of Fwd Packets","Total Length of Bwd Packets",
-    "Fwd Packet Length Max","Fwd Packet Length Min","Fwd Packet Length Mean","Fwd Packet Length Std",
-    "Bwd Packet Length Max","Bwd Packet Length Min","Bwd Packet Length Mean","Bwd Packet Length Std",
-    "Flow Bytes/s","Flow Packets/s","Flow IAT Mean","Flow IAT Std","Flow IAT Max","Flow IAT Min",
-    "Fwd IAT Total","Fwd IAT Mean","Fwd IAT Std","Fwd IAT Max","Fwd IAT Min",
-    "Bwd IAT Total","Bwd IAT Mean","Bwd IAT Std","Bwd IAT Max","Bwd IAT Min",
+    "Fwd Packet Length Max","Fwd Packet Length Min",
+    "Fwd Packet Length Mean","Fwd Packet Length Std",
+    "Bwd Packet Length Max","Bwd Packet Length Min",
+    "Bwd Packet Length Mean","Bwd Packet Length Std",
+    "Flow Bytes/s","Flow Packets/s",
+    "Flow IAT Mean","Flow IAT Std","Flow IAT Max","Flow IAT Min",
+    "Fwd IAT Total","Fwd IAT Mean","Fwd IAT Std",
+    "Fwd IAT Max","Fwd IAT Min",
+    "Bwd IAT Total","Bwd IAT Mean","Bwd IAT Std",
+    "Bwd IAT Max","Bwd IAT Min",
     "Fwd PSH Flags","Bwd PSH Flags","Fwd URG Flags","Bwd URG Flags",
-    "Fwd Header Length","Bwd Header Length","Fwd Packets/s","Bwd Packets/s",
-    "Min Packet Length","Max Packet Length","Packet Length Mean","Packet Length Std","Packet Length Variance",
-    "FIN Flag Count","SYN Flag Count","RST Flag Count","PSH Flag Count","ACK Flag Count",
-    "URG Flag Count","CWE Flag Count","ECE Flag Count",
-    "Down/Up Ratio","Average Packet Size","Avg Fwd Segment Size","Avg Bwd Segment Size",
+    "Fwd Header Length","Bwd Header Length",
+    "Fwd Packets/s","Bwd Packets/s",
+    "Min Packet Length","Max Packet Length",
+    "Packet Length Mean","Packet Length Std","Packet Length Variance",
+    "FIN Flag Count","SYN Flag Count","RST Flag Count",
+    "PSH Flag Count","ACK Flag Count","URG Flag Count",
+    "CWE Flag Count","ECE Flag Count",
+    "Down/Up Ratio","Average Packet Size",
+    "Avg Fwd Segment Size","Avg Bwd Segment Size",
     "Fwd Header Length.1",
-    "Subflow Fwd Packets","Subflow Fwd Bytes","Subflow Bwd Packets","Subflow Bwd Bytes",
+    "Subflow Fwd Packets","Subflow Fwd Bytes",
+    "Subflow Bwd Packets","Subflow Bwd Bytes",
     "Init_Win_bytes_forward","Init_Win_bytes_backward",
     "act_data_pkt_fwd","min_seg_size_forward",
     "Active Mean","Active Std","Active Max","Active Min",
@@ -76,20 +83,20 @@ CLASSES = [
     "Infiltration","PortScan","SSH-Patator",
     "Web Attack - Brute Force","Web Attack - SQLi","Web Attack - XSS",
 ]
-N_CLASSES  = len(CLASSES)
-N_FEATURES = len(FEATURE_NAMES)
+N_CLASSES  = len(CLASSES)   # 14
+N_FEATURES = len(FEATURE_NAMES)  # 78
 
-# ────────────────────────────────────────────────────────────────
-# Synthetic data generator
-# ────────────────────────────────────────────────────────────────
+# ── Helpers ──────────────────────────────────────────────────────────────────
 def gen_class(label, n, rng):
     rows = []
     for _ in range(n):
         f = rng.uniform(0.0, 0.3, N_FEATURES)
         if label == "BENIGN":
-            f[0]=rng.uniform(0.3,0.9); f[13]=rng.uniform(0.1,0.5); f[46]=float(rng.choice([0,1],p=[0.3,0.7]))
+            f[0]=rng.uniform(0.3,0.9); f[13]=rng.uniform(0.1,0.5)
+            f[46]=float(rng.choice([0,1],p=[0.3,0.7]))
         elif label == "DDoS":
-            f[0]=rng.uniform(0.0,0.1); f[13]=rng.uniform(0.7,1.0); f[14]=rng.uniform(0.8,1.0); f[43]=float(rng.choice([0,1]))
+            f[0]=rng.uniform(0.0,0.1); f[13]=rng.uniform(0.7,1.0)
+            f[14]=rng.uniform(0.8,1.0); f[43]=float(rng.choice([0,1]))
         elif label == "PortScan":
             f[0]=rng.uniform(0.0,0.05); f[43]=1.0; f[14]=rng.uniform(0.6,1.0)
         elif label == "DoS Hulk":
@@ -109,163 +116,175 @@ def gen_class(label, n, rng):
 
 def metrics_dict(name, y_true, y_pred, inf_ms, train_s):
     acc = round(float(accuracy_score(y_true, y_pred)), 6)
-    f1  = round(float(f1_score(y_true, y_pred, average="macro", zero_division=0)), 6)
+    f1  = round(float(f1_score(y_true, y_pred,
+                               average="macro", zero_division=0)), 6)
     cm  = confusion_matrix(y_true, y_pred)
     fp  = cm.sum(0) - np.diag(cm)
     tn  = cm.sum() - (fp + (cm.sum(1) - np.diag(cm)) + np.diag(cm))
     fpr = round(float(np.mean(fp / (fp + tn + 1e-9))), 6)
-    return {"model":name,"accuracy":acc,"macro_f1":f1,"mean_fpr":fpr,
-            "inference_ms_per_flow":round(inf_ms,4),
-            "n_test_samples":int(len(y_true)),"train_time_s":round(train_s,2)}
+    return {
+        "model": name, "accuracy": acc, "macro_f1": f1, "mean_fpr": fpr,
+        "inference_ms_per_flow": round(inf_ms, 4),
+        "n_test_samples": int(len(y_true)), "train_time_s": round(train_s, 2)
+    }
 
-# ────────────────────────────────────────────────────────────────
-# STEP 1 — Generate data  (800 train / 160 test per class)
-# ────────────────────────────────────────────────────────────────
+# ── STEP 1: Generate synthetic data ──────────────────────────────────────────
 print("\n[1/5] Generating synthetic data ...")
 rng = np.random.default_rng(42)
 N_TR, N_TE = 800, 160
 rows_tr, lbl_tr, rows_te, lbl_te = [], [], [], []
 for cls in CLASSES:
-    rows_tr += gen_class(cls, N_TR, rng); lbl_tr += [cls]*N_TR
-    rows_te += gen_class(cls, N_TE, rng);  lbl_te += [cls]*N_TE
+    rows_tr += gen_class(cls, N_TR, rng); lbl_tr += [cls] * N_TR
+    rows_te += gen_class(cls, N_TE, rng); lbl_te += [cls] * N_TE
 
-df_tr = pd.DataFrame(rows_tr, columns=FEATURE_NAMES); df_tr.insert(0,"Label",lbl_tr)
-df_te = pd.DataFrame(rows_te, columns=FEATURE_NAMES); df_te.insert(0,"Label",lbl_te)
-df_tr = df_tr.sample(frac=1,random_state=42).reset_index(drop=True)
-df_te = df_te.sample(frac=1,random_state=42).reset_index(drop=True)
+df_tr = pd.DataFrame(rows_tr, columns=FEATURE_NAMES)
+df_tr.insert(0, "Label", lbl_tr)
+df_te = pd.DataFrame(rows_te, columns=FEATURE_NAMES)
+df_te.insert(0, "Label", lbl_te)
+df_tr = df_tr.sample(frac=1, random_state=42).reset_index(drop=True)
+df_te = df_te.sample(frac=1, random_state=42).reset_index(drop=True)
 
-le = LabelEncoder(); le.fit(CLASSES)
+le = LabelEncoder()
+le.fit(CLASSES)
 y_tr = le.transform(df_tr["Label"].values).astype(np.int32)
 y_te = le.transform(df_te["Label"].values).astype(np.int32)
 X_tr = df_tr[FEATURE_NAMES].values.astype(np.float32)
 X_te = df_te[FEATURE_NAMES].values.astype(np.float32)
 
-scaler = MinMaxScaler(); scaler.fit(X_tr)
+scaler = MinMaxScaler()
+scaler.fit(X_tr)
 X_tr_sc = scaler.transform(X_tr).astype(np.float32)
 X_te_sc = scaler.transform(X_te).astype(np.float32)
 print(f"      Train {X_tr_sc.shape}  |  Test {X_te_sc.shape}")
 
-# ────────────────────────────────────────────────────────────────
-# STEP 2 — Save processed data as compressed .npz
-# ────────────────────────────────────────────────────────────────
+# ── STEP 2: Save processed data ───────────────────────────────────────────────
 print("\n[2/5] Saving compressed processed data ...")
 np.savez_compressed("data/processed/X_train.npz", data=X_tr_sc)
 np.savez_compressed("data/processed/X_test.npz",  data=X_te_sc)
 np.save("data/processed/y_train.npy", y_tr)
 np.save("data/processed/y_test.npy",  y_te)
-joblib.dump(scaler, "data/processed/scaler.pkl",        compress=("zlib",9))
-joblib.dump(le,     "data/processed/label_encoder.pkl", compress=("zlib",9))
-with open("data/processed/feature_names.json","w") as f: json.dump(FEATURE_NAMES, f, indent=2)
-label_map = {str(int(i)): cls for i,cls in enumerate(le.classes_)}
-with open("data/processed/label_map.json","w") as f: json.dump(label_map, f, indent=2)
-print("      Saved -> data/processed/")
+joblib.dump(scaler, "data/processed/scaler.pkl",        compress=("zlib", 9))
+joblib.dump(le,     "data/processed/label_encoder.pkl", compress=("zlib", 9))
+with open("data/processed/feature_names.json", "w") as fh:
+    json.dump(FEATURE_NAMES, fh, indent=2)
+label_map = {str(int(i)): cls for i, cls in enumerate(le.classes_)}
+with open("data/processed/label_map.json", "w") as fh:
+    json.dump(label_map, fh, indent=2)
 
-# Sample CSV for dashboard demo (stratified ~200 rows)
-df_sample = df_te.groupby("Label", group_keys=False).apply(
-    lambda g: g.sample(min(15, len(g)), random_state=42)
-).sample(frac=1, random_state=42).reset_index(drop=True)
+df_sample = (
+    df_te.groupby("Label", group_keys=False)
+         .apply(lambda g: g.sample(min(15, len(g)), random_state=42))
+         .sample(frac=1, random_state=42)
+         .reset_index(drop=True)
+)
 df_sample["label_encoded"] = le.transform(df_sample["Label"].values)
 df_sample.to_csv("data/samples/sample_200rows.csv", index=False)
-print(f"      Sample CSV saved ({len(df_sample)} rows) -> data/samples/sample_200rows.csv")
+print(f"      Sample CSV: {len(df_sample)} rows -> data/samples/sample_200rows.csv")
 
-with open("models/label_map.json","w") as f: json.dump(label_map, f, indent=2)
+with open("models/label_map.json", "w") as fh:
+    json.dump(label_map, fh, indent=2)
+print("      Saved -> data/processed/")
 
-# ────────────────────────────────────────────────────────────────
-# STEP 3 — Random Forest
-# FIX: n_estimators=50, max_depth=8  ->  keeps .pkl < 500 KB
-# ────────────────────────────────────────────────────────────────
-print("\n[3/5] Training Random Forest ...")
-t0=time.time()
+# ── STEP 3: Random Forest ─────────────────────────────────────────────────────
+print("\n[3/5] Training Random Forest  (n=50, depth=8) ...")
+t0 = time.time()
 rf = RandomForestClassifier(
-    n_estimators=50,     # reduced from 100 to shrink .pkl size
-    max_depth=8,         # reduced from 12
-    min_samples_leaf=5,  # slightly higher to prune more aggressively
-    max_features="sqrt", n_jobs=-1, random_state=42, class_weight="balanced"
+    n_estimators=50, max_depth=8, min_samples_leaf=5,
+    max_features="sqrt", n_jobs=-1, random_state=42,
+    class_weight="balanced"
 )
 rf.fit(X_tr_sc, y_tr)
-tt=time.time()-t0
-t0=time.time(); p=rf.predict(X_te_sc); it=(time.time()-t0)/len(y_te)*1000
-m=metrics_dict("RandomForest",y_te,p,it,tt)
-joblib.dump(rf, "models/random_forest.pkl", compress=("zlib",9))
-with open("models/rf_metrics.json","w") as f: json.dump(m,f,indent=2)
-fi = dict(sorted(zip(FEATURE_NAMES,rf.feature_importances_.tolist()), key=lambda x:-x[1]))
-with open("models/feature_importance_rf.json","w") as f: json.dump({k:round(v,8) for k,v in fi.items()},f,indent=2)
+tt = time.time() - t0
+t0 = time.time()
+p  = rf.predict(X_te_sc)
+it = (time.time() - t0) / len(y_te) * 1000
+m  = metrics_dict("RandomForest", y_te, p, it, tt)
+joblib.dump(rf, "models/random_forest.pkl", compress=("zlib", 9))
+with open("models/rf_metrics.json", "w") as fh: json.dump(m, fh, indent=2)
+fi = dict(sorted(
+    zip(FEATURE_NAMES, rf.feature_importances_.tolist()),
+    key=lambda x: -x[1]
+))
+with open("models/feature_importance_rf.json", "w") as fh:
+    json.dump({k: round(v, 8) for k, v in fi.items()}, fh, indent=2)
 size_rf = Path("models/random_forest.pkl").stat().st_size // 1024
-print(f"      Acc={m['accuracy']}  F1={m['macro_f1']}  size={size_rf}KB -> models/random_forest.pkl")
+print(f"      Acc={m['accuracy']}  F1={m['macro_f1']}  size={size_rf} KB")
 
-# ────────────────────────────────────────────────────────────────
-# STEP 4 — XGBoost  (unchanged — was already passing)
-# ────────────────────────────────────────────────────────────────
-print("\n[4/5] Training XGBoost ...")
-t0=time.time()
+# ── STEP 4: XGBoost ───────────────────────────────────────────────────────────
+print("\n[4/5] Training XGBoost  (n=200, early stop=15) ...")
+t0 = time.time()
 xgb_clf = xgb.XGBClassifier(
     n_estimators=200, max_depth=6, learning_rate=0.1,
     subsample=0.8, colsample_bytree=0.8, min_child_weight=3,
-    tree_method="hist", random_state=42, eval_metric="mlogloss", verbosity=0
+    tree_method="hist", random_state=42,
+    eval_metric="mlogloss", verbosity=0
 )
 xgb_clf.fit(
     X_tr_sc, y_tr,
     eval_set=[(X_te_sc, y_te)],
-    early_stopping_rounds=15, verbose=False
+    early_stopping_rounds=15,
+    verbose=False
 )
-tt=time.time()-t0
-t0=time.time(); p=xgb_clf.predict(X_te_sc); it=(time.time()-t0)/len(y_te)*1000
-m=metrics_dict("XGBoost",y_te,p,it,tt)
-joblib.dump(xgb_clf, "models/xgboost_model.pkl", compress=("zlib",9))
-with open("models/xgb_metrics.json","w") as f: json.dump(m,f,indent=2)
+tt = time.time() - t0
+t0 = time.time()
+p  = xgb_clf.predict(X_te_sc)
+it = (time.time() - t0) / len(y_te) * 1000
+m  = metrics_dict("XGBoost", y_te, p, it, tt)
+joblib.dump(xgb_clf, "models/xgboost_model.pkl", compress=("zlib", 9))
+with open("models/xgb_metrics.json", "w") as fh: json.dump(m, fh, indent=2)
 size_xgb = Path("models/xgboost_model.pkl").stat().st_size // 1024
-print(f"      Acc={m['accuracy']}  F1={m['macro_f1']}  size={size_xgb}KB -> models/xgboost_model.pkl")
+print(f"      Acc={m['accuracy']}  F1={m['macro_f1']}  size={size_xgb} KB")
 
-# ────────────────────────────────────────────────────────────────
-# STEP 5 — LSTM
-# FIX: save to /tmp/lstm_nids.keras  (TF>=2.16 requires .keras ext)
-#      then tar.gz that single file -> models/lstm_model.tar.gz
-# ────────────────────────────────────────────────────────────────
-print("\n[5/5] Training LSTM ...")
+# ── STEP 5: LSTM ──────────────────────────────────────────────────────────────
+print("\n[5/5] Training LSTM  (64->32 units, 20 epochs max) ...")
 TIME_STEPS = 5
-X_tr_lstm = np.stack([X_tr_sc]*TIME_STEPS, axis=1)   # (n, 5, 78)
-X_te_lstm = np.stack([X_te_sc]*TIME_STEPS, axis=1)
+X_tr_lstm = np.stack([X_tr_sc] * TIME_STEPS, axis=1)  # (n, 5, 78)
+X_te_lstm = np.stack([X_te_sc] * TIME_STEPS, axis=1)
 y_tr_cat  = to_categorical(y_tr, N_CLASSES)
 y_te_cat  = to_categorical(y_te, N_CLASSES)
 
+# Use explicit Input layer (avoids input_shape deprecation in TF>=2.16)
 model = Sequential([
-    LSTM(64, return_sequences=True, input_shape=(TIME_STEPS, N_FEATURES)),
+    Input(shape=(TIME_STEPS, N_FEATURES)),
+    LSTM(64, return_sequences=True),
     Dropout(0.3),
     LSTM(32),
     Dropout(0.3),
     Dense(N_CLASSES, activation="softmax"),
 ], name="lstm_nids")
 model.compile(
-    optimizer=tf.keras.optimizers.Adam(1e-3),
-    loss="categorical_crossentropy", metrics=["accuracy"]
+    optimizer=keras.optimizers.Adam(1e-3),
+    loss="categorical_crossentropy",
+    metrics=["accuracy"]
 )
-t0=time.time()
+t0 = time.time()
 model.fit(
     X_tr_lstm, y_tr_cat,
-    batch_size=256, epochs=20, validation_split=0.1, verbose=0,
+    batch_size=256, epochs=20,
+    validation_split=0.1, verbose=0,
     callbacks=[EarlyStopping(patience=4, restore_best_weights=True)]
 )
-tt=time.time()-t0
-t0=time.time()
-p=np.argmax(model.predict(X_te_lstm,verbose=0),axis=1)
-it=(time.time()-t0)/len(y_te)*1000
-m=metrics_dict("LSTM",y_te,p,it,tt)
+tt = time.time() - t0
+t0 = time.time()
+p  = np.argmax(model.predict(X_te_lstm, verbose=0), axis=1)
+it = (time.time() - t0) / len(y_te) * 1000
+m  = metrics_dict("LSTM", y_te, p, it, tt)
 
-# FIX: use .keras extension — required by TF 2.16+
+# FIX: .keras extension required by TF >= 2.16
 keras_tmp = "/tmp/lstm_nids.keras"
+print(f"      Saving model to {keras_tmp} ...")
 model.save(keras_tmp)
+print(f"      Keras file size: {Path(keras_tmp).stat().st_size // 1024} KB")
 with tarfile.open("models/lstm_model.tar.gz", "w:gz") as tar:
     tar.add(keras_tmp, arcname="lstm_nids.keras")
-with open("models/lstm_metrics.json","w") as f: json.dump(m,f,indent=2)
+with open("models/lstm_metrics.json", "w") as fh: json.dump(m, fh, indent=2)
 size_lstm = Path("models/lstm_model.tar.gz").stat().st_size // 1024
-print(f"      Acc={m['accuracy']}  F1={m['macro_f1']}  size={size_lstm}KB -> models/lstm_model.tar.gz")
+print(f"      Acc={m['accuracy']}  F1={m['macro_f1']}  size={size_lstm} KB")
 
-# ────────────────────────────────────────────────────────────────
-# metrics_summary.json
-# ────────────────────────────────────────────────────────────────
-rf_m  = json.load(open("models/rf_metrics.json"))
-xgb_m = json.load(open("models/xgb_metrics.json"))
-lstm_m= json.load(open("models/lstm_metrics.json"))
+# ── metrics_summary.json ──────────────────────────────────────────────────────
+rf_m   = json.load(open("models/rf_metrics.json"))
+xgb_m  = json.load(open("models/xgb_metrics.json"))
+lstm_m = json.load(open("models/lstm_metrics.json"))
 summary = {
     "models": [rf_m, xgb_m, lstm_m],
     "dataset": "CICIDS-2017 (synthetic balanced, GitHub Actions generated)",
@@ -273,15 +292,20 @@ summary = {
     "n_features": N_FEATURES,
     "n_train_samples": int(len(y_tr)),
     "n_test_samples":  int(len(y_te)),
-    "generated_by": "train_artifacts.py v2 via GitHub Actions",
+    "generated_by": "train_artifacts.py v3 via GitHub Actions",
 }
-with open("models/metrics_summary.json","w") as f: json.dump(summary,f,indent=2)
+with open("models/metrics_summary.json", "w") as fh:
+    json.dump(summary, fh, indent=2)
 
-print("\n" + "="*60)
-print("All artifacts saved!")
-print(f"  RF   : {Path('models/random_forest.pkl').stat().st_size//1024} KB")
-print(f"  XGB  : {Path('models/xgboost_model.pkl').stat().st_size//1024} KB")
-print(f"  LSTM : {Path('models/lstm_model.tar.gz').stat().st_size//1024} KB")
-print(f"  X_train.npz : {Path('data/processed/X_train.npz').stat().st_size//1024} KB")
-print(f"  X_test.npz  : {Path('data/processed/X_test.npz').stat().st_size//1024} KB")
-print("="*60)
+print("\n" + "=" * 60)
+print("All artifacts saved successfully!")
+for label, path in [
+    ("RF   ", "models/random_forest.pkl"),
+    ("XGB  ", "models/xgboost_model.pkl"),
+    ("LSTM ", "models/lstm_model.tar.gz"),
+    ("X_train.npz", "data/processed/X_train.npz"),
+    ("X_test.npz ", "data/processed/X_test.npz"),
+]:
+    sz = Path(path).stat().st_size // 1024
+    print(f"  {label}: {sz} KB  ->  {path}")
+print("=" * 60)

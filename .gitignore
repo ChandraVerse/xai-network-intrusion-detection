@@ -17,21 +17,22 @@ build/
 .ipynb_checkpoints/
 *.ipynb_checkpoints
 
-# ── Data (never commit raw data) ──────────────────────────
+# ── Raw data only (never commit raw PCAP / full CSVs) ─────
 data/raw/
-data/processed/
-*.csv
 *.pcap
 *.pcapng
 
-# ── Models (large binaries — use Git LFS or releases) ─────
-models/*.pkl
-models/*.joblib
-models/*.h5
-models/*.keras
-models/*.pt
-models/*.pth
-*.model
+# NOTE: data/processed/ and data/samples/ are intentionally
+# NOT ignored — small compressed artifacts are committed.
+# Large raw files belong in data/raw/ which IS ignored.
+
+# ── Model binaries — small trained artifacts ARE committed ─
+# (kept under ~2 MB total; trained via GitHub Actions)
+# Only exclude huge files you'd never want in git:
+*.pt
+*.pth
+*.onnx
+*.ckpt
 
 # ── Secrets & Environment ─────────────────────────────────
 .env
