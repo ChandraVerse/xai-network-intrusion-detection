@@ -3,6 +3,9 @@
 Trains a RandomForestClassifier on the SMOTE-balanced CICIDS-2017
 dataset and exports SHAP feature importances.
 
+Public API (used by tests and dashboard):
+    train_random_forest(X, y, n_estimators, max_depth, save_path) -> clf
+
 Usage (CLI):
     python src/models/random_forest.py \\
         --data data/processed/train_balanced.csv \\
@@ -51,7 +54,54 @@ SHAP_SAMPLE_N = 1000   # subsample for SHAP (full dataset is slow)
 
 
 # ---------------------------------------------------------------------------
-# Core functions
+# Public API wrapper  (called by tests + dashboard)
+# ---------------------------------------------------------------------------
+
+def train_random_forest(
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    n_estimators: int = N_ESTIMATORS,
+    max_depth: int | None = MAX_DEPTH,
+    save_path: str | None = None,
+    random_state: int = RANDOM_STATE,
+) -> RandomForestClassifier:
+    """Train a RandomForestClassifier and optionally save it.
+
+    Parameters
+    ----------
+    X_train      : feature matrix
+    y_train      : integer class labels
+    n_estimators : number of trees (default 200)
+    max_depth    : max tree depth; None = fully grown
+    save_path    : if given, joblib-dumps the model to this path
+    random_state : RNG seed for reproducibility
+
+    Returns
+    -------
+    Fitted RandomForestClassifier
+    """
+    clf = RandomForestClassifier(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        min_samples_leaf=MIN_SAMPLES_LEAF,
+        n_jobs=-1,
+        random_state=random_state,
+        class_weight="balanced",
+    )
+    log.info(
+        "Fitting RandomForest  n_estimators=%d  random_state=%d",
+        n_estimators, random_state,
+    )
+    clf.fit(X_train, y_train)
+    if save_path is not None:
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+        joblib.dump(clf, save_path, compress=3)
+        log.info("Model saved -> %s", save_path)
+    return clf
+
+
+# ---------------------------------------------------------------------------
+# Internal pipeline helpers (used by main / CLI)
 # ---------------------------------------------------------------------------
 
 def load_split(
@@ -78,26 +128,17 @@ def load_split(
     return X_train, y_train, X_test, y_test, feature_cols
 
 
-def train(X_train: np.ndarray, y_train: np.ndarray) -> RandomForestClassifier:
-    """Fit and return a RandomForestClassifier."""
-    clf = RandomForestClassifier(
+def train(
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+) -> RandomForestClassifier:
+    """Fit with CLI-default hyperparameters (used by main())."""
+    return train_random_forest(
+        X_train, y_train,
         n_estimators=N_ESTIMATORS,
         max_depth=MAX_DEPTH,
-        min_samples_leaf=MIN_SAMPLES_LEAF,
-        n_jobs=-1,
-        random_state=RANDOM_STATE,
-        class_weight="balanced",
-        verbose=1,
+        save_path=None,
     )
-    log.info(
-        "Fitting RandomForest  n_estimators=%d  random_state=%d",
-        N_ESTIMATORS, RANDOM_STATE,
-    )
-    t0 = time.perf_counter()
-    clf.fit(X_train, y_train)
-    elapsed = time.perf_counter() - t0
-    log.info("Training complete in %.1f s", elapsed)
-    return clf
 
 
 def evaluate(
@@ -153,7 +194,6 @@ def compute_shap(
     explainer = shap.TreeExplainer(clf)
     shap_values = explainer.shap_values(X_sample)
 
-    # shap_values is list of arrays [n_classes]; take mean abs across classes
     if isinstance(shap_values, list):
         mean_abs = np.mean(np.abs(np.stack(shap_values, axis=0)), axis=0)
     else:
