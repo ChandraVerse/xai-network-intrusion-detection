@@ -34,7 +34,10 @@ REPORTS_DIR     = ROOT / "reports"
 # ---------------------------------------------------------------------------
 RF_MODEL_PATH    = MODELS_DIR / "random_forest.pkl"
 XGB_MODEL_PATH   = MODELS_DIR / "xgboost_model.pkl"
-LSTM_MODEL_PATH  = MODELS_DIR / "lstm_model.h5"
+# LSTM is stored as a tar.gz archive containing a Keras SavedModel.
+# Extract with tarfile before loading via tf.keras.models.load_model().
+LSTM_MODEL_PATH  = MODELS_DIR / "lstm_model.tar.gz"
+LSTM_EXTRACT_DIR = MODELS_DIR / "lstm_extracted"
 SCALER_PATH      = DATA_PROC_DIR / "scaler.pkl"
 ENCODER_PATH     = DATA_PROC_DIR / "label_encoder.pkl"
 FEATURE_NAMES_PATH = DATA_PROC_DIR / "feature_names.json"
@@ -73,6 +76,23 @@ ATTACK_COLORS: dict[str, str] = {
     "FTP-Patator":         "#a5d6ff",
 }
 DEFAULT_COLOR = "#8b949e"
+
+# ---------------------------------------------------------------------------
+# LSTM loader helper
+# ---------------------------------------------------------------------------
+def load_lstm_model():
+    """Extract lstm_model.tar.gz and return a loaded Keras model."""
+    import tarfile
+    try:
+        import tensorflow as tf  # type: ignore
+    except ImportError as e:
+        raise ImportError("TensorFlow is required to load the LSTM model.") from e
+
+    if not LSTM_EXTRACT_DIR.exists() or not any(LSTM_EXTRACT_DIR.iterdir()):
+        LSTM_EXTRACT_DIR.mkdir(parents=True, exist_ok=True)
+        with tarfile.open(LSTM_MODEL_PATH, "r:gz") as tar:
+            tar.extractall(LSTM_EXTRACT_DIR)
+    return tf.keras.models.load_model(str(LSTM_EXTRACT_DIR))
 
 # ---------------------------------------------------------------------------
 # Logging
