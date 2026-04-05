@@ -1,66 +1,37 @@
 {
-  "dataset": "CICIDS-2017",
-  "preprocessing": "MinMaxScaler + SMOTE (train-only)",
-  "label_column": "label_encoded",
-  "n_classes": 15,
-  "test_set_rows": 521899,
-  "evaluation_date": "2026-04-04",
   "models": [
     {
       "model": "RandomForest",
-      "artifact": "models/random_forest.pkl",
-      "metrics_file": "models/rf_metrics.json",
-      "accuracy": 99.1842,
-      "macro_f1": 0.9734,
-      "detection_rate_pct": 99.2341,
-      "false_positive_rate_pct": 0.4812,
-      "macro_auc_ovr": 0.9981,
-      "inference_ms_per_flow": 0.412,
-      "train_time_seconds": 487.3,
-      "xai_method": "SHAP TreeExplainer"
+      "accuracy": 0.70625,
+      "macro_f1": 0.704948,
+      "mean_fpr": 0.022596,
+      "inference_ms_per_flow": 0.0103,
+      "n_test_samples": 2240,
+      "train_time_s": 0.86
     },
     {
       "model": "XGBoost",
-      "artifact": "models/xgboost_model.pkl",
-      "metrics_file": "models/xgb_metrics.json",
-      "accuracy": 99.4127,
-      "macro_f1": 0.9812,
-      "detection_rate_pct": 99.5033,
-      "false_positive_rate_pct": 0.3124,
-      "macro_auc_ovr": 0.9993,
-      "inference_ms_per_flow": 0.187,
-      "train_time_seconds": 312.8,
-      "xai_method": "SHAP TreeExplainer"
+      "accuracy": 0.709375,
+      "macro_f1": 0.709471,
+      "mean_fpr": 0.022356,
+      "inference_ms_per_flow": 0.006,
+      "n_test_samples": 2240,
+      "train_time_s": 5.04
     },
     {
       "model": "LSTM",
-      "artifact": "models/lstm_model.keras",
-      "metrics_file": "models/lstm_metrics.json",
-      "accuracy": 98.7341,
-      "macro_f1": 0.9621,
-      "detection_rate_pct": 98.9124,
-      "false_positive_rate_pct": 0.7341,
-      "macro_auc_ovr": 0.9964,
-      "inference_ms_per_flow": 1.823,
-      "train_time_seconds": 2847.1,
-      "xai_method": "SHAP DeepExplainer + GradientExplainer"
+      "accuracy": 0.69375,
+      "macro_f1": 0.663494,
+      "mean_fpr": 0.023558,
+      "inference_ms_per_flow": 0.1293,
+      "n_test_samples": 2240,
+      "train_time_s": 8.74
     }
   ],
-  "per_class_f1": {
-    "BENIGN":                    {"RF": 0.9981, "XGB": 0.9991, "LSTM": 0.9971},
-    "Bot":                       {"RF": 0.9712, "XGB": 0.9834, "LSTM": 0.9544},
-    "DDoS":                      {"RF": 0.9934, "XGB": 0.9967, "LSTM": 0.9888},
-    "DoS GoldenEye":             {"RF": 0.9821, "XGB": 0.9891, "LSTM": 0.9712},
-    "DoS Hulk":                  {"RF": 0.9912, "XGB": 0.9944, "LSTM": 0.9834},
-    "DoS Slowhttptest":          {"RF": 0.9744, "XGB": 0.9812, "LSTM": 0.9633},
-    "DoS slowloris":             {"RF": 0.9688, "XGB": 0.9721, "LSTM": 0.9812},
-    "FTP-Patator":               {"RF": 0.9966, "XGB": 0.9978, "LSTM": 0.9933},
-    "Heartbleed":                {"RF": 0.8421, "XGB": 0.9143, "LSTM": 0.7812},
-    "Infiltration":              {"RF": 0.7143, "XGB": 0.8000, "LSTM": 0.6667},
-    "PortScan":                  {"RF": 0.9988, "XGB": 0.9993, "LSTM": 0.9977},
-    "SSH-Patator":               {"RF": 0.9934, "XGB": 0.9967, "LSTM": 0.9901},
-    "Web Attack – Brute Force":  {"RF": 0.9512, "XGB": 0.9688, "LSTM": 0.9344},
-    "Web Attack – Sql Injection":{"RF": 0.8889, "XGB": 0.9333, "LSTM": 0.8421},
-    "Web Attack – XSS":          {"RF": 0.9234, "XGB": 0.9512, "LSTM": 0.9012}
-  }
+  "dataset": "CICIDS-2017 (synthetic balanced, GitHub Actions generated)",
+  "n_classes": 14,
+  "n_features": 78,
+  "n_train_samples": 11200,
+  "n_test_samples": 2240,
+  "generated_by": "train_artifacts.py v5 via GitHub Actions"
 }

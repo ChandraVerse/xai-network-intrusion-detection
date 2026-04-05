@@ -1,10 +1,9 @@
 {
-  "_note": "Stub — replace by running: python src/models/random_forest.py",
   "model": "RandomForest",
-  "accuracy": null,
-  "macro_f1": null,
-  "false_positive_rate": null,
-  "inference_ms_per_flow": null,
-  "n_estimators": 200,
-  "n_test_samples": null
+  "accuracy": 0.70625,
+  "macro_f1": 0.704948,
+  "mean_fpr": 0.022596,
+  "inference_ms_per_flow": 0.0103,
+  "n_test_samples": 2240,
+  "train_time_s": 0.86
 }

@@ -1,10 +1,9 @@
 {
-  "_note": "Stub — replace by running: python src/models/lstm_model.py",
   "model": "LSTM",
-  "accuracy": null,
-  "macro_f1": null,
-  "false_positive_rate": null,
-  "inference_ms_per_flow": null,
-  "time_steps": 5,
-  "n_test_samples": null
+  "accuracy": 0.69375,
+  "macro_f1": 0.663494,
+  "mean_fpr": 0.023558,
+  "inference_ms_per_flow": 0.1293,
+  "n_test_samples": 2240,
+  "train_time_s": 8.74
 }

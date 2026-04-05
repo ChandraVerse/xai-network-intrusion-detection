@@ -1,10 +1,9 @@
 {
-  "_note": "Stub — replace by running: python src/models/xgboost_model.py",
   "model": "XGBoost",
-  "accuracy": null,
-  "macro_f1": null,
-  "false_positive_rate": null,
-  "inference_ms_per_flow": null,
-  "best_iteration": null,
-  "n_test_samples": null
+  "accuracy": 0.709375,
+  "macro_f1": 0.709471,
+  "mean_fpr": 0.022356,
+  "inference_ms_per_flow": 0.006,
+  "n_test_samples": 2240,
+  "train_time_s": 5.04
 }
