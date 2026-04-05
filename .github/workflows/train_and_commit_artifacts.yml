@@ -1,0 +1,85 @@
+name: Train & Commit Model Artifacts
+
+# ── Triggers ──────────────────────────────────────────────────────────────
+# Run manually from the Actions tab, or automatically on push to main
+# when bootstrap script changes.
+on:
+  workflow_dispatch:   # manual trigger from Actions tab
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/train_and_commit_artifacts.yml'
+
+# Only one run at a time — prevent concurrent artifact commits
+concurrency:
+  group: train-artifacts
+  cancel-in-progress: true
+
+jobs:
+  train:
+    name: Train models & commit artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    permissions:
+      contents: write   # needed to push committed artifacts back
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 2. Python setup ──────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      # ── 3. Install minimal dependencies ──────────────────────────────
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip --quiet
+          pip install \
+            numpy==1.26.4 \
+            pandas==2.2.2 \
+            scikit-learn==1.4.2 \
+            xgboost==2.0.3 \
+            tensorflow-cpu==2.16.1 \
+            joblib==1.4.2 \
+            --quiet
+
+      # ── 4. Train & save all artifacts ────────────────────────────────
+      - name: Train models and generate artifacts
+        run: python .github/scripts/train_artifacts.py
+
+      # ── 5. Commit artifacts back to repo ─────────────────────────────
+      - name: Commit artifacts
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add \
+            models/random_forest.pkl \
+            models/xgboost_model.pkl \
+            models/lstm_model.tar.gz \
+            models/rf_metrics.json \
+            models/xgb_metrics.json \
+            models/lstm_metrics.json \
+            models/metrics_summary.json \
+            models/feature_importance_rf.json \
+            models/label_map.json \
+            data/processed/X_train.npz \
+            data/processed/X_test.npz \
+            data/processed/y_train.npy \
+            data/processed/y_test.npy \
+            data/processed/scaler.pkl \
+            data/processed/label_encoder.pkl \
+            data/processed/feature_names.json \
+            data/processed/label_map.json \
+            data/samples/sample_200rows.csv
+          git diff --cached --quiet && echo "Nothing changed" && exit 0
+          git commit -m "ci: auto-commit trained model artifacts [skip ci]"
+          git push
