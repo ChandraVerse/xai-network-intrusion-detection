@@ -3,6 +3,9 @@
 Trains an XGBClassifier on the SMOTE-balanced CICIDS-2017 dataset
 and exports SHAP feature importances.
 
+Public API (used by tests and dashboard):
+    train_xgboost(X, y, n_estimators, max_depth, save_path) -> clf
+
 Usage (CLI):
     python src/models/xgboost_model.py \\
         --data data/processed/train_balanced.csv \\
@@ -56,7 +59,64 @@ SHAP_SAMPLE_N = 1000
 
 
 # ---------------------------------------------------------------------------
-# Core functions
+# Public API wrapper  (called by tests + dashboard)
+# ---------------------------------------------------------------------------
+
+def train_xgboost(
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    n_estimators: int = N_ESTIMATORS,
+    max_depth: int = MAX_DEPTH,
+    learning_rate: float = LEARNING_RATE,
+    save_path: str | None = None,
+    random_state: int = RANDOM_STATE,
+) -> XGBClassifier:
+    """Train an XGBClassifier and optionally save it.
+
+    Parameters
+    ----------
+    X_train       : feature matrix
+    y_train       : integer class labels
+    n_estimators  : number of boosting rounds (default 300)
+    max_depth     : max tree depth (default 8)
+    learning_rate : step size shrinkage (default 0.1)
+    save_path     : if given, saves the model to this path (joblib)
+    random_state  : RNG seed
+
+    Returns
+    -------
+    Fitted XGBClassifier
+    """
+    n_classes = len(np.unique(y_train))
+    clf = XGBClassifier(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        learning_rate=learning_rate,
+        subsample=SUBSAMPLE,
+        colsample_bytree=COLSAMPLE_BYTREE,
+        objective="multi:softprob",
+        num_class=n_classes,
+        random_state=random_state,
+        tree_method="hist",
+        device="cpu",
+        eval_metric="mlogloss",
+        verbosity=0,
+    )
+    log.info(
+        "Fitting XGBoost  n_estimators=%d  max_depth=%d  n_classes=%d",
+        n_estimators, max_depth, n_classes,
+    )
+    clf.fit(X_train, y_train)
+    if save_path is not None:
+        import joblib
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+        joblib.dump(clf, save_path, compress=3)
+        log.info("Model saved -> %s", save_path)
+    return clf
+
+
+# ---------------------------------------------------------------------------
+# Internal pipeline helpers (used by main / CLI)
 # ---------------------------------------------------------------------------
 
 def load_split(
@@ -83,31 +143,18 @@ def load_split(
     return X_train, y_train, X_test, y_test, feature_cols
 
 
-def train(X_train: np.ndarray, y_train: np.ndarray, n_classes: int) -> XGBClassifier:
-    """Fit and return an XGBClassifier."""
-    clf = XGBClassifier(
+def train(
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    n_classes: int,
+) -> XGBClassifier:
+    """Fit with CLI-default hyperparameters (used by main())."""
+    return train_xgboost(
+        X_train, y_train,
         n_estimators=N_ESTIMATORS,
         max_depth=MAX_DEPTH,
-        learning_rate=LEARNING_RATE,
-        subsample=SUBSAMPLE,
-        colsample_bytree=COLSAMPLE_BYTREE,
-        objective="multi:softprob",
-        num_class=n_classes,
-        random_state=RANDOM_STATE,
-        tree_method="hist",
-        device="cpu",
-        eval_metric="mlogloss",
-        verbosity=1,
+        save_path=None,
     )
-    log.info(
-        "Fitting XGBoost  n_estimators=%d  max_depth=%d",
-        N_ESTIMATORS, MAX_DEPTH,
-    )
-    t0 = time.perf_counter()
-    clf.fit(X_train, y_train, eval_set=[(X_train, y_train)], verbose=50)
-    elapsed = time.perf_counter() - t0
-    log.info("Training complete in %.1f s", elapsed)
-    return clf
 
 
 def evaluate(
