@@ -41,9 +41,7 @@ jobs:
             pytest>=7.4.0 \
             pytest-cov>=4.1.0 \
             flake8>=6.1.0
-          # XGBoost: fail-safe if unavailable
           pip install xgboost>=2.0.0 || echo "[WARN] xgboost not installed"
-          # TF-CPU is heavy — install quietly, skip LSTM tests if absent
           pip install tensorflow-cpu>=2.13.0 || echo "[WARN] tensorflow not installed"
 
       - name: Lint with flake8
@@ -59,6 +57,7 @@ jobs:
             --cov=src \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
+            --cov-fail-under=60 \
             --tb=short \
             -v
 
@@ -69,7 +68,31 @@ jobs:
           name: coverage-report
           path: coverage.xml
 
-  # ── Job 2: Sample CSV smoke test ────────────────────────────────────────────
+      # Upload coverage to Codecov for badge on README
+      - name: Upload to Codecov
+        if: matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  # ── Job 2: Data validation (pandera schema check) ─────────────────────────
+  data-validation:
+    name: Data schema validation
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install numpy pandas pandera
+      - name: Validate sample CSV schema
+        run: python scripts/validate_data_schema.py
+
+  # ── Job 3: Sample CSV smoke test ────────────────────────────────────────────
   sample-data:
     name: Generate sample data (smoke test)
     runs-on: ubuntu-latest
@@ -91,7 +114,7 @@ jobs:
           test -f data/samples/sample_attack_mix.csv
           echo "All sample files generated successfully."
 
-  # ── Job 3: Security scan (Bandit) ────────────────────────────────────────────
+  # ── Job 4: Security scan (Bandit) ────────────────────────────────────────────
   security:
     name: Security scan (Bandit)
     runs-on: ubuntu-latest
@@ -111,7 +134,7 @@ jobs:
             --format txt \
             --exit-zero
 
-  # ── Job 4: Docker build validation ───────────────────────────────────────────
+  # ── Job 5: Docker build validation ───────────────────────────────────────────
   docker-build:
     name: Docker build (validate Dockerfile)
     runs-on: ubuntu-latest
@@ -125,5 +148,4 @@ jobs:
             --tag xai-nids:ci-${{ github.sha }} \
             --no-cache \
             .
-        # Continue even if the build fails (Dockerfile may be a work-in-progress)
         continue-on-error: true
