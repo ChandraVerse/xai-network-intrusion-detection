@@ -1,32 +1,40 @@
 # Screenshots
 
-This directory contains dashboard and model output screenshots generated when running the full pipeline.
+This directory contains dashboard screenshots and output visualisations for the XAI-NIDS project.
+
+## Expected Contents
+
+Once the dashboard has been run locally (`streamlit run dashboard/app.py`), add screenshots here:
+
+| Filename | Description |
+|---|---|
+| `dashboard_overview.png` | Full dashboard landing page |
+| `shap_waterfall_alert.png` | SHAP waterfall for a single DoS alert |
+| `lime_explanation_alert.png` | LIME rule-based explanation for a PortScan alert |
+| `model_comparison_panel.png` | Side-by-side RF vs XGBoost vs LSTM metrics |
+| `confusion_matrix_rf.png` | Random Forest confusion matrix heatmap |
+| `roc_curves_all.png` | ROC-AUC curves for all three models |
 
 ## How to Generate
 
-Run the full pipeline end-to-end and screenshots will be saved here automatically:
-
 ```bash
-# 1. Download CICIDS-2017 dataset (see data/README.md)
-# 2. Run notebooks in order:
-jupyter nbconvert --to notebook --execute notebooks/01_eda.ipynb
-jupyter nbconvert --to notebook --execute notebooks/02_preprocessing.ipynb
-jupyter nbconvert --to notebook --execute notebooks/03_model_training.ipynb
-jupyter nbconvert --to notebook --execute notebooks/04_explainability.ipynb
+# 1. Run the dashboard
+streamlit run dashboard/app.py
 
-# 3. Launch dashboard (screenshots captured from the running app)
-cd dashboard && streamlit run app.py
+# 2. Report figures are auto-saved during notebook 05 run:
+#    reports/figures/confusion_matrices.png
+#    reports/figures/roc_curves.png
+#    reports/figures/shap_vs_lime.png
+#    reports/figures/latency_benchmark.png
+
+# 3. Copy relevant figures here for documentation
+cp reports/figures/*.png docs/screenshots/
 ```
 
-## Expected Screenshots
+## README Badge
 
-| File | Description |
-|------|-------------|
-| `screenshot1_streamlit_dashboard.png` | Streamlit dashboard — live prediction with SHAP waterfall |
-| `screenshot2_model_comparison.png` | RF vs XGBoost vs LSTM ROC curves and confusion matrices |
-| `screenshot3_shap_summary.png` | SHAP beeswarm global feature importance plot |
-| `screenshot4_dataset_distribution.png` | CICIDS-2017 class distribution bar chart from EDA |
+Add this to the root `README.md` to show the dashboard preview:
 
-> **Note:** Screenshots are not committed to keep repository size small.  
-> The trained model artifacts (`.pkl`, `.h5`) are similarly excluded via `.gitignore`.  
-> See [Releases](../../releases) for pre-built model artifacts once the full pipeline is executed.
+```markdown
+![Dashboard Overview](docs/screenshots/dashboard_overview.png)
+```
