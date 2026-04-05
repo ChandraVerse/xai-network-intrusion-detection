@@ -1,0 +1,36 @@
+# Lightweight CI requirements — excludes heavy GPU deps (tensorflow, jupyter)
+# Used by .github/workflows/ci.yml to keep runner install under 2 min
+
+# Core Data Science
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+
+# Machine Learning
+scikit-learn>=1.3.0
+imbalanced-learn>=0.11.0
+xgboost>=2.0.0
+
+# Deep Learning (CPU-only, lightweight)
+tensorflow-cpu>=2.13.0
+
+# Explainability
+shap>=0.44.0
+
+# Visualization (headless-safe)
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.18.0
+
+# Dashboard (import-only, no server start in tests)
+streamlit>=1.28.0
+
+# Utilities
+joblib>=1.3.0
+tqdm>=4.65.0
+python-dotenv>=1.0.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+flake8>=6.1.0

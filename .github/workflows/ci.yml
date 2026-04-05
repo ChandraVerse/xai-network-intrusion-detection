@@ -26,38 +26,50 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements-ci.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-${{ matrix.python-version }}-
 
-      - name: Install dependencies
+      - name: Install CI dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
+          pip install -r requirements-ci.txt
 
       - name: Generate synthetic fixture data
         run: |
-          python scripts/generate_sample_data.py --rows 200 --quiet
-          echo "Fixture data generated:"
+          python scripts/generate_samples.py --rows 200 --out data/samples/sample_100.csv
+          echo "Fixture data ready:"
           ls -lh data/samples/
 
-      - name: Run unit tests
+      - name: Run unit + integration tests
         run: |
           python -m pytest tests/ -v --tb=short \
-            --ignore=tests/integration \
-            --cov=src --cov-report=xml --cov-report=term-missing \
-            -q 2>&1 || echo "::warning::Some tests failed — check output above"
+            --ignore=tests/test_integration.py \
+            --cov=src --cov-report=xml --cov-report=term-missing
 
-      - name: Upload coverage
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         if: matrix.python-version == '3.11'
         with:
           files: coverage.xml
           fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: Lint (flake8)
+      - name: Lint with flake8
         run: |
-          pip install flake8 --quiet
-          flake8 src/ dashboard/ --max-line-length=120 --ignore=E501,W503 \
-            --exclude=__pycache__ || echo "::warning::Lint warnings found"
+          flake8 src/ dashboard/ scripts/ \
+            --max-line-length=120 \
+            --ignore=E501,W503 \
+            --exclude=__pycache__,.git
+
+      - name: Verify sample data schema
+        run: |
+          python - <<'EOF'
+          import pandas as pd
+          from scripts.generate_samples import FEATURE_NAMES, CLASSES
+          df = pd.read_csv("data/samples/sample_100.csv")
+          assert list(df.columns[:-1]) == FEATURE_NAMES, "Column mismatch!"
+          assert df.shape[1] == 79, f"Expected 79 cols (78 features + Label), got {df.shape[1]}"
+          assert set(df['Label'].unique()).issubset(set(CLASSES)), "Unknown labels in sample!"
+          print(f"[OK] Schema check passed: {df.shape[0]} rows x {df.shape[1]} cols")
+          EOF

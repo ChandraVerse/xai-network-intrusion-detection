@@ -1,184 +1,194 @@
+#!/usr/bin/env python3
 """
-generate_samples.py
--------------------
-Generates synthetic sample CSVs for data/samples/ from CICIDS-2017
-feature distributions (MinMax-scaled profiles, random_state=42).
+scripts/generate_samples.py
 
-Run from repo root:
-    python scripts/generate_samples.py
+Public API used by tests/conftest.py:
+    FEATURE_NAMES  list[str]     -- 78 CICFlowMeter column names
+    CLASSES        list[str]     -- 14 CICIDS-2017 attack/benign class labels
+    gen_class_samples(label, n, rng) -> list[list[float]]
 
-Outputs:
-    data/samples/sample_10rows.csv
-    data/samples/sample_100rows.csv
-    data/samples/sample_benign_only.csv
-    data/samples/sample_attack_mix.csv
-
-All values are MinMax-scaled to [0, 1] -- matching the output of
-data/processed/scaler.pkl. Do NOT pass these through scaler.transform().
+Also importable as a stand-alone generator:
+    python scripts/generate_samples.py --rows 500 --out data/samples/sample_100.csv
 """
+from __future__ import annotations
 
+import argparse
 import os
+from typing import List
+
 import numpy as np
 import pandas as pd
 
-OUT_DIR = "data/samples"
-os.makedirs(OUT_DIR, exist_ok=True)
+# ---------------------------------------------------------------------------
+# Schema
+# ---------------------------------------------------------------------------
 
-# 78 feature columns (CICIDS-2017 after cleaning)
-FEATURE_NAMES = [
-    "Flow Duration", "Total Fwd Packets", "Total Backward Packets",
-    "Total Length of Fwd Packets", "Total Length of Bwd Packets",
-    "Fwd Packet Length Max", "Fwd Packet Length Min", "Fwd Packet Length Mean", "Fwd Packet Length Std",
-    "Bwd Packet Length Max", "Bwd Packet Length Min", "Bwd Packet Length Mean", "Bwd Packet Length Std",
-    "Flow Bytes/s", "Flow Packets/s", "Flow IAT Mean", "Flow IAT Std", "Flow IAT Max", "Flow IAT Min",
+FEATURE_NAMES: List[str] = [
+    "Destination Port", "Flow Duration", "Total Fwd Packets",
+    "Total Backward Packets", "Total Length of Fwd Packets",
+    "Total Length of Bwd Packets", "Fwd Packet Length Max",
+    "Fwd Packet Length Min", "Fwd Packet Length Mean", "Fwd Packet Length Std",
+    "Bwd Packet Length Max", "Bwd Packet Length Min", "Bwd Packet Length Mean",
+    "Bwd Packet Length Std", "Flow Bytes/s", "Flow Packets/s",
+    "Flow IAT Mean", "Flow IAT Std", "Flow IAT Max", "Flow IAT Min",
     "Fwd IAT Total", "Fwd IAT Mean", "Fwd IAT Std", "Fwd IAT Max", "Fwd IAT Min",
     "Bwd IAT Total", "Bwd IAT Mean", "Bwd IAT Std", "Bwd IAT Max", "Bwd IAT Min",
     "Fwd PSH Flags", "Bwd PSH Flags", "Fwd URG Flags", "Bwd URG Flags",
     "Fwd Header Length", "Bwd Header Length", "Fwd Packets/s", "Bwd Packets/s",
-    "Min Packet Length", "Max Packet Length", "Packet Length Mean", "Packet Length Std", "Packet Length Variance",
-    "FIN Flag Count", "SYN Flag Count", "RST Flag Count", "PSH Flag Count", "ACK Flag Count",
-    "URG Flag Count", "CWE Flag Count", "ECE Flag Count",
-    "Down/Up Ratio", "Average Packet Size", "Avg Fwd Segment Size", "Avg Bwd Segment Size",
-    "Fwd Header Length.1",
-    "Subflow Fwd Packets", "Subflow Fwd Bytes", "Subflow Bwd Packets", "Subflow Bwd Bytes",
+    "Min Packet Length", "Max Packet Length", "Packet Length Mean",
+    "Packet Length Std", "Packet Length Variance",
+    "FIN Flag Count", "SYN Flag Count", "RST Flag Count", "PSH Flag Count",
+    "ACK Flag Count", "URG Flag Count", "CWE Flag Count", "ECE Flag Count",
+    "Down/Up Ratio", "Average Packet Size", "Avg Fwd Segment Size",
+    "Avg Bwd Segment Size", "Fwd Header Length.1",
+    "Fwd Avg Bytes/Bulk", "Fwd Avg Packets/Bulk", "Fwd Avg Bulk Rate",
+    "Bwd Avg Bytes/Bulk", "Bwd Avg Packets/Bulk", "Bwd Avg Bulk Rate",
+    "Subflow Fwd Packets", "Subflow Fwd Bytes",
+    "Subflow Bwd Packets", "Subflow Bwd Bytes",
     "Init_Win_bytes_forward", "Init_Win_bytes_backward",
     "act_data_pkt_fwd", "min_seg_size_forward",
     "Active Mean", "Active Std", "Active Max", "Active Min",
     "Idle Mean", "Idle Std", "Idle Max", "Idle Min",
-    "Inbound",
-    "Fwd Avg Bytes/Bulk", "Fwd Avg Packets/Bulk", "Fwd Avg Bulk Rate",
-    "Bwd Avg Bytes/Bulk", "Bwd Avg Packets/Bulk", "Bwd Avg Bulk Rate",
 ]
 
-CLASSES = [
-    "BENIGN", "Bot", "DDoS", "DoS GoldenEye", "DoS Hulk",
-    "DoS Slowhttptest", "DoS Slowloris", "FTP-Patator",
-    "Infiltration", "PortScan", "SSH-Patator",
-    "Web Attack - Brute Force", "Web Attack - SQLi", "Web Attack - XSS",
+CLASSES: List[str] = [
+    "BENIGN", "DDoS", "DoS Hulk", "DoS GoldenEye", "DoS Slowloris",
+    "DoS Slowhttptest", "FTP-Patator", "SSH-Patator", "PortScan",
+    "Web Attack - Brute Force", "Web Attack - XSS",
+    "Web Attack - Sql Injection", "Infiltration", "Bot",
 ]
 
+# Per-class realistic flow statistics (mean, std) derived from CICIDS-2017
+_PROFILES = {
+    "BENIGN":                    {"dur": (1_200_000, 800_000), "fwd": (12, 8),    "bps": (4500, 3000)},
+    "DDoS":                      {"dur": (3_000, 2_000),      "fwd": (47000, 8000), "bps": (980_000, 50_000)},
+    "DoS Hulk":                  {"dur": (5_000, 3_000),      "fwd": (3000, 500), "bps": (750_000, 40_000)},
+    "DoS GoldenEye":             {"dur": (50_000, 20_000),    "fwd": (150, 40),   "bps": (95_000, 10_000)},
+    "DoS Slowloris":             {"dur": (900_000, 200_000),  "fwd": (4, 2),      "bps": (200, 80)},
+    "DoS Slowhttptest":          {"dur": (950_000, 250_000),  "fwd": (5, 2),      "bps": (250, 90)},
+    "FTP-Patator":               {"dur": (200_000, 80_000),   "fwd": (7, 3),      "bps": (3000, 900)},
+    "SSH-Patator":               {"dur": (250_000, 90_000),   "fwd": (8, 3),      "bps": (3500, 1000)},
+    "PortScan":                  {"dur": (2_000, 1_500),      "fwd": (1, 0.5),    "bps": (80, 40)},
+    "Web Attack - Brute Force":  {"dur": (120_000, 60_000),   "fwd": (20, 8),     "bps": (12_000, 4000)},
+    "Web Attack - XSS":          {"dur": (130_000, 55_000),   "fwd": (18, 6),     "bps": (11_000, 3500)},
+    "Web Attack - Sql Injection":{"dur": (140_000, 65_000),   "fwd": (22, 9),     "bps": (13_000, 5000)},
+    "Infiltration":              {"dur": (600_000, 150_000),  "fwd": (35, 10),    "bps": (8000, 2000)},
+    "Bot":                       {"dur": (400_000, 100_000),  "fwd": (15, 5),     "bps": (5000, 1500)},
+}
 
-def gen_class_samples(label: str, n: int, rng: np.random.Generator) -> list:
-    """Generate n synthetic MinMax-scaled feature vectors for a given class."""
-    rows = []
+
+def gen_class_samples(
+    label: str,
+    n: int,
+    rng: np.random.Generator,
+) -> List[List[float]]:
+    """Return n rows of float features for the given class label."""
+    profile = _PROFILES[label]
+    rows: List[List[float]] = []
     for _ in range(n):
-        if label == "BENIGN":
-            f = rng.uniform(0.0, 0.4, 78)
-            f[0] = rng.uniform(0.3, 0.9)   # long flow duration
-            f[13] = rng.uniform(0.1, 0.5)   # moderate bytes/s
-            f[46] = rng.choice([0, 1], p=[0.3, 0.7])  # ACK dominant
-        elif label == "DDoS":
-            f = rng.uniform(0.0, 0.2, 78)
-            f[0] = rng.uniform(0.0, 0.1)   # very short duration
-            f[13] = rng.uniform(0.7, 1.0)   # very high bytes/s
-            f[14] = rng.uniform(0.8, 1.0)   # very high packets/s
-            f[43] = rng.choice([0, 1])       # SYN flood indicator
-        elif label == "PortScan":
-            f = rng.uniform(0.0, 0.15, 78)
-            f[0] = rng.uniform(0.0, 0.05)  # extremely short flows
-            f[1] = rng.uniform(0.0, 0.1)   # few forward packets
-            f[43] = 1.0                      # SYN always set
-            f[44] = rng.choice([0, 1])       # RST common
-        elif label == "DoS Hulk":
-            f = rng.uniform(0.0, 0.3, 78)
-            f[13] = rng.uniform(0.6, 1.0)   # high bytes/s
-            f[5] = rng.uniform(0.5, 1.0)   # large forward packets
-        elif label == "Bot":
-            f = rng.uniform(0.05, 0.35, 78)
-            f[0] = rng.uniform(0.2, 0.8)   # medium duration (periodic C2)
-            f[15] = rng.uniform(0.3, 0.7)   # regular IAT pattern
-        elif label in ("FTP-Patator", "SSH-Patator"):
-            f = rng.uniform(0.0, 0.4, 78)
-            f[0] = rng.uniform(0.1, 0.6)
-            f[43] = 1.0                      # SYN flag
-            f[46] = 1.0                      # ACK flag
-        elif label in ("DoS Slowloris", "DoS Slowhttptest"):
-            f = rng.uniform(0.0, 0.2, 78)
-            f[0] = rng.uniform(0.7, 1.0)   # very long duration (slow attack)
-            f[13] = rng.uniform(0.0, 0.1)   # very low bytes/s
-        elif label.startswith("Web Attack"):
-            f = rng.uniform(0.0, 0.5, 78)
-            f[5] = rng.uniform(0.3, 0.8)   # larger packet sizes (payloads)
-            f[46] = 1.0                      # ACK flag
-        elif label == "DoS GoldenEye":
-            f = rng.uniform(0.0, 0.3, 78)
-            f[0] = rng.uniform(0.05, 0.3)
-            f[13] = rng.uniform(0.5, 0.9)
-        elif label == "Infiltration":
-            f = rng.uniform(0.05, 0.6, 78)  # mimics benign
-        else:
-            f = rng.uniform(0.0, 0.5, 78)
-        rows.append(np.clip(f, 0.0, 1.0))
+        dur  = max(1.0, rng.normal(*profile["dur"]))
+        fwd  = max(1.0, rng.normal(*profile["fwd"]))
+        bps  = max(0.0, rng.normal(*profile["bps"]))
+        bwd  = max(0.0, rng.normal(fwd * 0.6, fwd * 0.2 + 1e-9))
+        pmean = rng.uniform(40, 1500)
+        iat  = dur / fwd
+
+        row: List[float] = [
+            float(rng.choice([80, 443, 22, 21, 8080, int(rng.integers(1024, 65535))])),  # Destination Port
+            dur,                                     # Flow Duration
+            fwd,                                     # Total Fwd Packets
+            bwd,                                     # Total Backward Packets
+            fwd * rng.uniform(40, 1500),             # Total Length of Fwd Packets
+            bwd * rng.uniform(40, 1500),             # Total Length of Bwd Packets
+            pmean + rng.uniform(0, 500),             # Fwd Packet Length Max
+            max(0, pmean - rng.uniform(0, 400)),     # Fwd Packet Length Min
+            pmean,                                   # Fwd Packet Length Mean
+            rng.uniform(0, 300),                     # Fwd Packet Length Std
+            pmean + rng.uniform(0, 600),             # Bwd Packet Length Max
+            max(0, pmean - rng.uniform(0, 400)),     # Bwd Packet Length Min
+            pmean * rng.uniform(0.5, 1.2),           # Bwd Packet Length Mean
+            rng.uniform(0, 350),                     # Bwd Packet Length Std
+            bps,                                     # Flow Bytes/s
+            (fwd + bwd) / (dur / 1e6 + 1e-9),       # Flow Packets/s
+            iat,                                     # Flow IAT Mean
+            rng.uniform(0, iat + 1e-9),              # Flow IAT Std
+            iat + rng.uniform(0, iat * 2 + 1e-9),   # Flow IAT Max
+            max(0, iat - rng.uniform(0, iat + 1e-9)), # Flow IAT Min
+            dur * rng.uniform(0.6, 0.9),             # Fwd IAT Total
+            iat * rng.uniform(0.8, 1.1),             # Fwd IAT Mean
+            rng.uniform(0, iat * 0.5 + 1e-9),       # Fwd IAT Std
+            iat * rng.uniform(1.0, 2.5),             # Fwd IAT Max
+            max(0, iat * rng.uniform(0, 0.5)),       # Fwd IAT Min
+            dur * rng.uniform(0.4, 0.8),             # Bwd IAT Total
+            iat * rng.uniform(0.7, 1.2),             # Bwd IAT Mean
+            rng.uniform(0, iat * 0.5 + 1e-9),       # Bwd IAT Std
+            iat * rng.uniform(1.0, 2.5),             # Bwd IAT Max
+            max(0, iat * rng.uniform(0, 0.5)),       # Bwd IAT Min
+            float(rng.integers(0, 2)),               # Fwd PSH Flags
+            float(rng.integers(0, 2)),               # Bwd PSH Flags
+            0.0,                                     # Fwd URG Flags
+            0.0,                                     # Bwd URG Flags
+            fwd * 20,                                # Fwd Header Length
+            bwd * 20,                                # Bwd Header Length
+            fwd / (dur / 1e6 + 1e-9),               # Fwd Packets/s
+            bwd / (dur / 1e6 + 1e-9),               # Bwd Packets/s
+            max(0, pmean - rng.uniform(0, 400)),     # Min Packet Length
+            pmean + rng.uniform(0, 600),             # Max Packet Length
+            pmean,                                   # Packet Length Mean
+            rng.uniform(0, 350),                     # Packet Length Std
+            rng.uniform(0, 350) ** 2,                # Packet Length Variance
+            float(rng.integers(0, 3)),               # FIN Flag Count
+            float(rng.integers(0, 3)),               # SYN Flag Count
+            float(rng.integers(0, 2)),               # RST Flag Count
+            float(rng.integers(0, 5)),               # PSH Flag Count
+            float(rng.integers(0, 10)),              # ACK Flag Count
+            0.0,                                     # URG Flag Count
+            0.0,                                     # CWE Flag Count
+            float(rng.integers(0, 2)),               # ECE Flag Count
+            bwd / fwd,                               # Down/Up Ratio
+            pmean,                                   # Average Packet Size
+            pmean,                                   # Avg Fwd Segment Size
+            pmean * rng.uniform(0.5, 1.2),           # Avg Bwd Segment Size
+            fwd * 20,                                # Fwd Header Length.1
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,          # Bulk features (6)
+            fwd,                                     # Subflow Fwd Packets
+            fwd * pmean,                             # Subflow Fwd Bytes
+            bwd,                                     # Subflow Bwd Packets
+            bwd * pmean,                             # Subflow Bwd Bytes
+            float(rng.choice([8192, 16384, 32768, 65535, -1])),  # Init_Win_bytes_forward
+            float(rng.choice([8192, 16384, 32768, 65535, -1])),  # Init_Win_bytes_backward
+            max(0, fwd - 1),                         # act_data_pkt_fwd
+            20.0,                                    # min_seg_size_forward
+            rng.uniform(0, dur * 0.3),               # Active Mean
+            rng.uniform(0, dur * 0.15 + 1e-9),      # Active Std
+            rng.uniform(0, dur * 0.3),               # Active Max
+            rng.uniform(0, dur * 0.15 + 1e-9),      # Active Min
+            rng.uniform(0, dur * 0.5),               # Idle Mean
+            rng.uniform(0, dur * 0.25 + 1e-9),      # Idle Std
+            rng.uniform(0, dur * 0.5),               # Idle Max
+            rng.uniform(0, dur * 0.25 + 1e-9),      # Idle Min
+        ]
+        rows.append(row)
     return rows
 
 
-def build_df(rows: list, labels: list) -> pd.DataFrame:
-    df = pd.DataFrame(rows, columns=FEATURE_NAMES)
-    df.insert(0, "Label", labels)
+def generate_csv(rows: int, out: str, seed: int = 42) -> None:
+    rng = np.random.default_rng(seed)
+    weights = [0.60] + [0.40 / (len(CLASSES) - 1)] * (len(CLASSES) - 1)
+    labels = rng.choice(CLASSES, size=rows, p=weights)
+    data = [gen_class_samples(lbl, 1, rng)[0] + [lbl] for lbl in labels]
+    df = pd.DataFrame(data, columns=FEATURE_NAMES + ["Label"])
+    os.makedirs(os.path.dirname(out) if os.path.dirname(out) else ".", exist_ok=True)
+    df.to_csv(out, index=False)
     return df
 
 
-def main():
-    rng = np.random.default_rng(42)
-    print("=" * 55)
-    print("XAI-NIDS  |  Sample CSV Generator")
-    print("=" * 55)
-
-    # 1. 10 rows -- one per class
-    print("\n[1/4] Generating sample_10rows.csv ...")
-    rows, labels = [], []
-    for cls in CLASSES[:10]:
-        rows += gen_class_samples(cls, 1, rng)
-        labels.append(cls)
-    build_df(rows, labels).to_csv(
-        os.path.join(OUT_DIR, "sample_10rows.csv"), index=False, float_format="%.6f"
-    )
-    print("      Saved -> data/samples/sample_10rows.csv  (10 rows)")
-
-    # 2. 100 rows -- balanced, all 14 classes
-    print("[2/4] Generating sample_100rows.csv ...")
-    rows, labels = [], []
-    per_class = 100 // len(CLASSES)
-    remainder = 100 % len(CLASSES)
-    for i, cls in enumerate(CLASSES):
-        n = per_class + (1 if i < remainder else 0)
-        rows += gen_class_samples(cls, n, rng)
-        labels += [cls] * n
-    idx = np.arange(len(rows))
-    rng.shuffle(idx)
-    build_df([rows[i] for i in idx], [labels[i] for i in idx]).to_csv(
-        os.path.join(OUT_DIR, "sample_100rows.csv"), index=False, float_format="%.6f"
-    )
-    print("      Saved -> data/samples/sample_100rows.csv  (100 rows)")
-
-    # 3. 50 rows -- benign only
-    print("[3/4] Generating sample_benign_only.csv ...")
-    rows = gen_class_samples("BENIGN", 50, rng)
-    build_df(rows, ["BENIGN"] * 50).to_csv(
-        os.path.join(OUT_DIR, "sample_benign_only.csv"), index=False, float_format="%.6f"
-    )
-    print("      Saved -> data/samples/sample_benign_only.csv  (50 rows)")
-
-    # 4. 190 rows -- attack-heavy demo mix
-    print("[4/4] Generating sample_attack_mix.csv ...")
-    rows, labels = [], []
-    rows += gen_class_samples("BENIGN", 60, rng)
-    labels += ["BENIGN"] * 60
-    attack_classes = [c for c in CLASSES if c != "BENIGN"]
-    for cls in attack_classes:
-        rows += gen_class_samples(cls, 10, rng)
-        labels += [cls] * 10
-    idx = np.arange(len(rows))
-    rng.shuffle(idx)
-    build_df([rows[i] for i in idx], [labels[i] for i in idx]).to_csv(
-        os.path.join(OUT_DIR, "sample_attack_mix.csv"), index=False, float_format="%.6f"
-    )
-    print("      Saved -> data/samples/sample_attack_mix.csv  (190 rows)")
-
-    print("\n" + "=" * 55)
-    print("✅  All sample CSVs written to data/samples/")
-    print("=" * 55)
-
-
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Generate synthetic CICIDS-2017 sample CSV")
+    parser.add_argument("--rows", type=int, default=500)
+    parser.add_argument("--out",  type=str, default="data/samples/sample_100.csv")
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args()
+    df = generate_csv(args.rows, args.out, args.seed)
+    print(f"[OK] {args.rows} rows -> {args.out}  shape={df.shape}")
+    print(f"     {df['Label'].value_counts().to_dict()}")
