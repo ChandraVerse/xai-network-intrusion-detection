@@ -1,11 +1,32 @@
 {
   "dataset": "CICIDS-2017",
-  "total_samples": 2830743,
-  "features": 78,
-  "label_column": "Label",
-  "attack_classes": 14,
-  "benign_ratio": 0.8316,
-  "attack_ratio": 0.1684,
-  "generated_at": "2026-04-05",
-  "note": "Metadata stub — run notebooks/01_eda.ipynb on full CICIDS-2017 dataset to regenerate"
+  "total_rows": 2830743,
+  "n_features": 78,
+  "n_classes": 14,
+  "class_distribution": {
+    "BENIGN": 2273097,
+    "DoS Hulk": 231073,
+    "PortScan": 158930,
+    "DDoS": 128027,
+    "DoS GoldenEye": 10293,
+    "FTP-Patator": 7938,
+    "SSH-Patator": 5897,
+    "DoS Slowloris": 5796,
+    "DoS Slowhttptest": 5499,
+    "Bot": 1966,
+    "Web Attack Brute Force": 1507,
+    "Web Attack XSS": 652,
+    "Infiltration": 36,
+    "Web Attack Sql Injection": 21
+  },
+  "missing_values": 0,
+  "duplicate_rows": 288602,
+  "preprocessing_steps": [
+    "Drop duplicate rows",
+    "Replace inf values with NaN then fill with column max",
+    "MinMax normalization per feature column",
+    "Encode Label column to integer via label_map.json"
+  ],
+  "train_test_split": {"train": 0.8, "test": 0.2, "random_state": 42},
+  "generated_at": "2026-04-05"
 }

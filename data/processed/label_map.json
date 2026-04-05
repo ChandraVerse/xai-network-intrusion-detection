@@ -1,39 +1,16 @@
 {
-  "label_to_int": {
-    "BENIGN": 0,
-    "Bot": 1,
-    "DDoS": 2,
-    "DoS GoldenEye": 3,
-    "DoS Hulk": 4,
-    "DoS Slowhttptest": 5,
-    "DoS Slowloris": 6,
-    "FTP-Patator": 7,
-    "Infiltration": 8,
-    "PortScan": 9,
-    "SSH-Patator": 10,
-    "Web Attack Brute Force": 11,
-    "Web Attack Sql Injection": 12,
-    "Web Attack XSS": 13
-  },
-  "int_to_label": {
-    "0": "BENIGN",
-    "1": "Bot",
-    "2": "DDoS",
-    "3": "DoS GoldenEye",
-    "4": "DoS Hulk",
-    "5": "DoS Slowhttptest",
-    "6": "DoS Slowloris",
-    "7": "FTP-Patator",
-    "8": "Infiltration",
-    "9": "PortScan",
-    "10": "SSH-Patator",
-    "11": "Web Attack Brute Force",
-    "12": "Web Attack Sql Injection",
-    "13": "Web Attack XSS"
-  },
-  "binary_map": {
-    "BENIGN": 0,
-    "attack": 1
-  },
-  "note": "Label encoding for CICIDS-2017 — run notebooks/02_preprocessing.ipynb to regenerate"
+  "BENIGN": 0,
+  "Bot": 1,
+  "DDoS": 2,
+  "DoS GoldenEye": 3,
+  "DoS Hulk": 4,
+  "DoS Slowhttptest": 5,
+  "DoS Slowloris": 6,
+  "FTP-Patator": 7,
+  "Infiltration": 8,
+  "PortScan": 9,
+  "SSH-Patator": 10,
+  "Web Attack Brute Force": 11,
+  "Web Attack Sql Injection": 12,
+  "Web Attack XSS": 13
 }
