@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.explainability.lime_explainer import LIMEExplainer, make_keras_predict_fn  # noqa: E402
 
-# Use conftest fixtures: X_small, y_small, fitted_rf_small (15 features, 4 classes)
+# Uses conftest fixtures: X_small, y_small, fitted_rf_small (15 features, 4 classes)
 
 
 class TestLIMEExplainerInit:
@@ -73,7 +73,6 @@ class TestExplainInstance:
                                          num_features=5, num_samples=200)
         e2 = explainer.explain_instance(X_small[1], fitted_rf_small.predict_proba,
                                          num_features=5, num_samples=200)
-        # Very unlikely to be identical for different inputs
         assert e1.as_list() != e2.as_list() or X_small[0].tolist() == X_small[1].tolist()
 
 
@@ -116,7 +115,6 @@ class TestMakeKerasPredict:
     def test_wrapper_returns_proba_shape(self, X_small, fitted_rf_small):
         """Smoke-test the Keras wrapper using an sklearn model as stand-in."""
         class _FakeKeras:
-            """sklearn model that mimics keras model.predict interface."""
             def predict(self, X, verbose=0):
                 return fitted_rf_small.predict_proba(
                     X.reshape(X.shape[0], -1)[:, :X_small.shape[1]]
