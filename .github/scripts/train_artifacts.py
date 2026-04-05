@@ -1,18 +1,14 @@
-"""train_artifacts.py  v3
+"""train_artifacts.py  v4
 Runs inside GitHub Actions (ubuntu-latest, Python 3.11).
 Trains RF, XGBoost, and a tiny LSTM on synthetic CICIDS-2017 data.
 
-Changes vs v2:
-  - LSTM: model.save("/tmp/lstm_nids.keras") — .keras ext required by TF>=2.16
-  - RF:   n_estimators=50, max_depth=8, min_samples_leaf=5  => ~300-450 KB
-  - XGB:  unchanged (was already passing at 427 KB)
-  - workflow commit step uses `git add -f` to bypass .gitignore
-
-Artifact size targets:
-  RF   .pkl  (joblib zlib-9)   150-450 KB
-  XGB  .pkl  (joblib zlib-9)    50-150 KB
-  LSTM .tar.gz (.keras gzipped) 300-700 KB
-  data .npz  (compressed)       50-200 KB total
+Changes vs v3:
+  - FIXED: KeyError 'Label' caused by pandas>=2.2 groupby().apply()
+    dropping the groupby column from results.
+    Replaced groupby sample with direct stratified slice from raw arrays.
+  - LSTM: model.save('/tmp/lstm_nids.keras') — .keras ext for TF>=2.16
+  - RF:   n_estimators=50, max_depth=8  => ~300-450 KB
+  - XGB:  unchanged (passing at ~427 KB)
 """
 
 import json, os, tarfile, time, warnings
@@ -36,9 +32,10 @@ for d in ["models", "data/processed", "data/samples", ".github/scripts"]:
     os.makedirs(d, exist_ok=True)
 
 print("=" * 60)
-print("XAI-NIDS  |  GitHub Actions Artifact Bootstrap  v3")
+print("XAI-NIDS  |  GitHub Actions Artifact Bootstrap  v4")
 print(f"TF  version : {tf.__version__}")
 print(f"XGB version : {xgb.__version__}")
+print(f"PD  version : {pd.__version__}")
 print("=" * 60)
 
 # ── Feature schema (78 CICIDS-2017 features) ─────────────────────────────────
@@ -137,19 +134,23 @@ for cls in CLASSES:
     rows_tr += gen_class(cls, N_TR, rng); lbl_tr += [cls] * N_TR
     rows_te += gen_class(cls, N_TE, rng); lbl_te += [cls] * N_TE
 
-df_tr = pd.DataFrame(rows_tr, columns=FEATURE_NAMES)
-df_tr.insert(0, "Label", lbl_tr)
-df_te = pd.DataFrame(rows_te, columns=FEATURE_NAMES)
-df_te.insert(0, "Label", lbl_te)
-df_tr = df_tr.sample(frac=1, random_state=42).reset_index(drop=True)
-df_te = df_te.sample(frac=1, random_state=42).reset_index(drop=True)
+# Shuffle train
+tr_idx = np.random.default_rng(42).permutation(len(rows_tr))
+rows_tr = [rows_tr[i] for i in tr_idx]
+lbl_tr  = [lbl_tr[i]  for i in tr_idx]
+
+# Shuffle test
+te_idx = np.random.default_rng(42).permutation(len(rows_te))
+rows_te = [rows_te[i] for i in te_idx]
+lbl_te  = [lbl_te[i]  for i in te_idx]
 
 le = LabelEncoder()
 le.fit(CLASSES)
-y_tr = le.transform(df_tr["Label"].values).astype(np.int32)
-y_te = le.transform(df_te["Label"].values).astype(np.int32)
-X_tr = df_tr[FEATURE_NAMES].values.astype(np.float32)
-X_te = df_te[FEATURE_NAMES].values.astype(np.float32)
+
+X_tr = np.array(rows_tr, dtype=np.float32)
+X_te = np.array(rows_te, dtype=np.float32)
+y_tr = le.transform(lbl_tr).astype(np.int32)
+y_te = le.transform(lbl_te).astype(np.int32)
 
 scaler = MinMaxScaler()
 scaler.fit(X_tr)
@@ -171,13 +172,19 @@ label_map = {str(int(i)): cls for i, cls in enumerate(le.classes_)}
 with open("data/processed/label_map.json", "w") as fh:
     json.dump(label_map, fh, indent=2)
 
-df_sample = (
-    df_te.groupby("Label", group_keys=False)
-         .apply(lambda g: g.sample(min(15, len(g)), random_state=42))
-         .sample(frac=1, random_state=42)
-         .reset_index(drop=True)
-)
-df_sample["label_encoded"] = le.transform(df_sample["Label"].values)
+# FIX: build sample CSV directly from raw lists — no pandas groupby needed
+# Take 15 rows per class from the test set (already per-class in lbl_te)
+sample_rows, sample_labels = [], []
+for cls in CLASSES:
+    idxs = [i for i, l in enumerate(lbl_te) if l == cls][:15]
+    for i in idxs:
+        sample_rows.append(X_te[i])
+        sample_labels.append(cls)
+sample_arr = np.array(sample_rows, dtype=np.float32)
+df_sample = pd.DataFrame(sample_arr, columns=FEATURE_NAMES)
+df_sample.insert(0, "Label", sample_labels)
+df_sample["label_encoded"] = le.transform(sample_labels)
+df_sample = df_sample.sample(frac=1, random_state=42).reset_index(drop=True)
 df_sample.to_csv("data/samples/sample_200rows.csv", index=False)
 print(f"      Sample CSV: {len(df_sample)} rows -> data/samples/sample_200rows.csv")
 
@@ -243,7 +250,6 @@ X_te_lstm = np.stack([X_te_sc] * TIME_STEPS, axis=1)
 y_tr_cat  = to_categorical(y_tr, N_CLASSES)
 y_te_cat  = to_categorical(y_te, N_CLASSES)
 
-# Use explicit Input layer (avoids input_shape deprecation in TF>=2.16)
 model = Sequential([
     Input(shape=(TIME_STEPS, N_FEATURES)),
     LSTM(64, return_sequences=True),
@@ -270,11 +276,10 @@ p  = np.argmax(model.predict(X_te_lstm, verbose=0), axis=1)
 it = (time.time() - t0) / len(y_te) * 1000
 m  = metrics_dict("LSTM", y_te, p, it, tt)
 
-# FIX: .keras extension required by TF >= 2.16
 keras_tmp = "/tmp/lstm_nids.keras"
 print(f"      Saving model to {keras_tmp} ...")
 model.save(keras_tmp)
-print(f"      Keras file size: {Path(keras_tmp).stat().st_size // 1024} KB")
+print(f"      Keras file size : {Path(keras_tmp).stat().st_size // 1024} KB")
 with tarfile.open("models/lstm_model.tar.gz", "w:gz") as tar:
     tar.add(keras_tmp, arcname="lstm_nids.keras")
 with open("models/lstm_metrics.json", "w") as fh: json.dump(m, fh, indent=2)
@@ -292,20 +297,21 @@ summary = {
     "n_features": N_FEATURES,
     "n_train_samples": int(len(y_tr)),
     "n_test_samples":  int(len(y_te)),
-    "generated_by": "train_artifacts.py v3 via GitHub Actions",
+    "generated_by": "train_artifacts.py v4 via GitHub Actions",
 }
 with open("models/metrics_summary.json", "w") as fh:
     json.dump(summary, fh, indent=2)
 
 print("\n" + "=" * 60)
 print("All artifacts saved successfully!")
-for label, path in [
-    ("RF   ", "models/random_forest.pkl"),
-    ("XGB  ", "models/xgboost_model.pkl"),
-    ("LSTM ", "models/lstm_model.tar.gz"),
-    ("X_train.npz", "data/processed/X_train.npz"),
-    ("X_test.npz ", "data/processed/X_test.npz"),
+for lbl, path in [
+    ("RF        ", "models/random_forest.pkl"),
+    ("XGB       ", "models/xgboost_model.pkl"),
+    ("LSTM      ", "models/lstm_model.tar.gz"),
+    ("X_train   ", "data/processed/X_train.npz"),
+    ("X_test    ", "data/processed/X_test.npz"),
+    ("sample CSV", "data/samples/sample_200rows.csv"),
 ]:
     sz = Path(path).stat().st_size // 1024
-    print(f"  {label}: {sz} KB  ->  {path}")
+    print(f"  {lbl}: {sz} KB  ->  {path}")
 print("=" * 60)
