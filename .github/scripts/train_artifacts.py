@@ -1,14 +1,10 @@
-"""train_artifacts.py  v4
+"""train_artifacts.py  v5
 Runs inside GitHub Actions (ubuntu-latest, Python 3.11).
 Trains RF, XGBoost, and a tiny LSTM on synthetic CICIDS-2017 data.
 
-Changes vs v3:
-  - FIXED: KeyError 'Label' caused by pandas>=2.2 groupby().apply()
-    dropping the groupby column from results.
-    Replaced groupby sample with direct stratified slice from raw arrays.
-  - LSTM: model.save('/tmp/lstm_nids.keras') — .keras ext for TF>=2.16
-  - RF:   n_estimators=50, max_depth=8  => ~300-450 KB
-  - XGB:  unchanged (passing at ~427 KB)
+Changes vs v4:
+  - FIXED: XGBoost 3.x moved early_stopping_rounds from .fit() to constructor
+  - All previous fixes retained (pandas groupby, LSTM .keras, RF size)
 """
 
 import json, os, tarfile, time, warnings
@@ -32,7 +28,7 @@ for d in ["models", "data/processed", "data/samples", ".github/scripts"]:
     os.makedirs(d, exist_ok=True)
 
 print("=" * 60)
-print("XAI-NIDS  |  GitHub Actions Artifact Bootstrap  v4")
+print("XAI-NIDS  |  GitHub Actions Artifact Bootstrap  v5")
 print(f"TF  version : {tf.__version__}")
 print(f"XGB version : {xgb.__version__}")
 print(f"PD  version : {pd.__version__}")
@@ -80,8 +76,8 @@ CLASSES = [
     "Infiltration","PortScan","SSH-Patator",
     "Web Attack - Brute Force","Web Attack - SQLi","Web Attack - XSS",
 ]
-N_CLASSES  = len(CLASSES)   # 14
-N_FEATURES = len(FEATURE_NAMES)  # 78
+N_CLASSES  = len(CLASSES)
+N_FEATURES = len(FEATURE_NAMES)
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 def gen_class(label, n, rng):
@@ -113,8 +109,7 @@ def gen_class(label, n, rng):
 
 def metrics_dict(name, y_true, y_pred, inf_ms, train_s):
     acc = round(float(accuracy_score(y_true, y_pred)), 6)
-    f1  = round(float(f1_score(y_true, y_pred,
-                               average="macro", zero_division=0)), 6)
+    f1  = round(float(f1_score(y_true, y_pred, average="macro", zero_division=0)), 6)
     cm  = confusion_matrix(y_true, y_pred)
     fp  = cm.sum(0) - np.diag(cm)
     tn  = cm.sum() - (fp + (cm.sum(1) - np.diag(cm)) + np.diag(cm))
@@ -134,12 +129,10 @@ for cls in CLASSES:
     rows_tr += gen_class(cls, N_TR, rng); lbl_tr += [cls] * N_TR
     rows_te += gen_class(cls, N_TE, rng); lbl_te += [cls] * N_TE
 
-# Shuffle train
 tr_idx = np.random.default_rng(42).permutation(len(rows_tr))
 rows_tr = [rows_tr[i] for i in tr_idx]
 lbl_tr  = [lbl_tr[i]  for i in tr_idx]
 
-# Shuffle test
 te_idx = np.random.default_rng(42).permutation(len(rows_te))
 rows_te = [rows_te[i] for i in te_idx]
 lbl_te  = [lbl_te[i]  for i in te_idx]
@@ -172,8 +165,6 @@ label_map = {str(int(i)): cls for i, cls in enumerate(le.classes_)}
 with open("data/processed/label_map.json", "w") as fh:
     json.dump(label_map, fh, indent=2)
 
-# FIX: build sample CSV directly from raw lists — no pandas groupby needed
-# Take 15 rows per class from the test set (already per-class in lbl_te)
 sample_rows, sample_labels = [], []
 for cls in CLASSES:
     idxs = [i for i, l in enumerate(lbl_te) if l == cls][:15]
@@ -218,18 +209,25 @@ size_rf = Path("models/random_forest.pkl").stat().st_size // 1024
 print(f"      Acc={m['accuracy']}  F1={m['macro_f1']}  size={size_rf} KB")
 
 # ── STEP 4: XGBoost ───────────────────────────────────────────────────────────
-print("\n[4/5] Training XGBoost  (n=200, early stop=15) ...")
+print("\n[4/5] Training XGBoost  (n=200, early stop in constructor) ...")
 t0 = time.time()
+# FIX: XGBoost 3.x moved early_stopping_rounds to the constructor
 xgb_clf = xgb.XGBClassifier(
-    n_estimators=200, max_depth=6, learning_rate=0.1,
-    subsample=0.8, colsample_bytree=0.8, min_child_weight=3,
-    tree_method="hist", random_state=42,
-    eval_metric="mlogloss", verbosity=0
+    n_estimators=200,
+    max_depth=6,
+    learning_rate=0.1,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    min_child_weight=3,
+    tree_method="hist",
+    random_state=42,
+    eval_metric="mlogloss",
+    verbosity=0,
+    early_stopping_rounds=15,   # <-- moved here from .fit() for XGB>=3.0
 )
 xgb_clf.fit(
     X_tr_sc, y_tr,
     eval_set=[(X_te_sc, y_te)],
-    early_stopping_rounds=15,
     verbose=False
 )
 tt = time.time() - t0
@@ -245,7 +243,7 @@ print(f"      Acc={m['accuracy']}  F1={m['macro_f1']}  size={size_xgb} KB")
 # ── STEP 5: LSTM ──────────────────────────────────────────────────────────────
 print("\n[5/5] Training LSTM  (64->32 units, 20 epochs max) ...")
 TIME_STEPS = 5
-X_tr_lstm = np.stack([X_tr_sc] * TIME_STEPS, axis=1)  # (n, 5, 78)
+X_tr_lstm = np.stack([X_tr_sc] * TIME_STEPS, axis=1)
 X_te_lstm = np.stack([X_te_sc] * TIME_STEPS, axis=1)
 y_tr_cat  = to_categorical(y_tr, N_CLASSES)
 y_te_cat  = to_categorical(y_te, N_CLASSES)
@@ -297,7 +295,7 @@ summary = {
     "n_features": N_FEATURES,
     "n_train_samples": int(len(y_tr)),
     "n_test_samples":  int(len(y_te)),
-    "generated_by": "train_artifacts.py v4 via GitHub Actions",
+    "generated_by": "train_artifacts.py v5 via GitHub Actions",
 }
 with open("models/metrics_summary.json", "w") as fh:
     json.dump(summary, fh, indent=2)
