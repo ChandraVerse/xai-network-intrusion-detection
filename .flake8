@@ -16,13 +16,15 @@ max-line-length = 120
 # E741  ambiguous variable name   (l, O, I — used in ML formulas)
 # E401  multiple imports on one line
 # C901  function is too complex   (ML pipelines are inherently complex)
+# E402  module level import not at top of file
+#       (matplotlib.use("Agg") must precede pyplot import; common in ML code)
 # ── Cosmetic alignment rules (aligned assignment blocks are intentional) ──────────
 # E221  multiple spaces before operator  (aligned = blocks for readability)
 # E241  multiple spaces after ','        (aligned dict/list literals)
 # E226  missing whitespace around arithmetic operator
 # E203  whitespace before ':'            (numpy slice style: arr[x :])
 # E702  multiple statements on one line  (occasional ; for compact init)
-ignore = E501,W503,E302,E303,E231,W291,W293,E711,E712,W504,E741,E401,C901,E221,E241,E226,E203,E702
+ignore = E501,W503,E302,E303,E231,W291,W293,E711,E712,W504,E741,E401,C901,E221,E241,E226,E203,E702,E402
 
 # ── Excluded paths ───────────────────────────────────────────────────────────────────
 exclude =
@@ -45,10 +47,10 @@ exclude =
 
 # ── Per-file overrides ─────────────────────────────────────────────────────────────────
 per-file-ignores =
-    # Scripts: allow top-level imports anywhere, unused imports for re-export
-    scripts/*.py: E402,F401,F811,F841
+    # Scripts: allow unused imports for re-export, unused variables
+    scripts/*.py: F401,F811,F841
     # Tests: allow unused imports, redefinition of fixtures, assert style
-    tests/*.py: E402,F401,F811,S101
+    tests/*.py: F401,F811,S101
     # Src init files: allow unused imports (public API re-exports)
     src/**/__init__.py: F401
     # Logger: Optional imported for type hints in older Python compat shims
