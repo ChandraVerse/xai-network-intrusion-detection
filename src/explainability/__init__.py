@@ -24,7 +24,11 @@ from src.explainability.lime_explainer import (
     make_keras_predict_fn,
 )
 from src.explainability.waterfall import plot_waterfall
-from src.explainability.summary_plot import plot_summary
+from src.explainability.summary_plot import (
+    plot_beeswarm,
+    plot_bar,
+    plot_dependence,
+)
 
 __all__ = [
     # SHAP
@@ -33,7 +37,10 @@ __all__ = [
     "shap_explain",
     "shap_explain_single",
     "plot_waterfall",
-    "plot_summary",
+    # Summary plots
+    "plot_beeswarm",
+    "plot_bar",
+    "plot_dependence",
     # LIME
     "lime_explainer",
     "LimeExplainer",
