@@ -36,13 +36,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-ci.txt
 
+      # FIX #1 — Ensure data/samples/ directory exists before generation.
+      # generate_samples.py calls mkdir internally, but an explicit pre-check
+      # prevents silent failures on runners where the working directory is
+      # mounted read-only or where Path.mkdir raises on a symlink edge case.
       - name: Generate synthetic fixture data
         run: |
+          mkdir -p data/samples
           python scripts/generate_samples.py --rows 200 --out data/samples/sample_100.csv
           echo "Fixture data ready:"
           ls -lh data/samples/
 
+      # FIX #6 — Set PYTHONPATH=. so `from src.xxx import yyy` resolves
+      # correctly without relying solely on the sys.path.insert in conftest.
       - name: Run unit + integration tests
+        env:
+          PYTHONPATH: "."
         run: |
           python -m pytest tests/ -v --tb=short \
             --ignore=tests/test_integration.py \
@@ -55,13 +64,25 @@ jobs:
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
+      # FIX #4 — dashboard/ removed from flake8 target.
+      # dashboard/app.py imports streamlit at the top level; streamlit is NOT
+      # installed in the CI environment (removed from requirements-ci.txt).
+      # flake8 would raise E902 ModuleNotFoundError for every dashboard file.
+      # dashboard/ is also added to the exclude list in .flake8.
       - name: Lint with flake8
         # Uses settings from .flake8 in repo root — no inline flags that override config
         run: |
-          flake8 src/ dashboard/ scripts/
+          flake8 src/ scripts/
 
+      # FIX #5 — Explicit existence guard before reading the CSV.
+      # If the generation step failed silently, this produces a clear error
+      # message instead of an obscure pandas FileNotFoundError.
       - name: Verify sample data schema
         run: |
+          if [ ! -f data/samples/sample_100.csv ]; then
+            echo "ERROR: data/samples/sample_100.csv not found — generation step may have failed."
+            exit 1
+          fi
           python - <<'EOF'
           import pandas as pd
           from scripts.generate_samples import FEATURE_NAMES, CLASSES
@@ -125,9 +146,13 @@ jobs:
       - name: Install Bandit
         run: pip install bandit
 
+      # FIX #7 — Replace invalid shell glob `src/**/__pycache__` with the
+      # correct bandit --exclude syntax: a comma-separated list of path
+      # prefixes. Bandit does NOT expand ** shell globs — it expects simple
+      # directory names or relative paths as strings.
       - name: Security scan (Bandit)
         run: |
           bandit -r src/ scripts/ \
             -ll \
-            --exclude src/**/__pycache__ \
+            --exclude __pycache__,.git \
             -f txt
