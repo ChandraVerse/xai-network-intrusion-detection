@@ -76,11 +76,21 @@ class TestDashboardConfig:
         assert has_names or has_count, "Feature schema missing from config"
 
     def test_no_hardcoded_absolute_paths(self, cfg):
-        """Paths should be relative or built with os.path — not /home or /root."""
+        """User-defined config values should be relative paths, not /home or /root.
+
+        Skips Python dunder/internal attributes (__cached__, __file__, __spec__,
+        etc.) because those are set by the interpreter and are always absolute.
+        Only public and UPPER_CASE config names are checked.
+        """
         for attr in dir(cfg):
+            # Skip ALL dunder attributes — these are Python internals
+            # (__cached__, __file__, __loader__, __spec__, __path__, etc.)
+            # and their absolute paths are set by the interpreter, not the dev.
+            if attr.startswith("__") and attr.endswith("__"):
+                continue
             val = getattr(cfg, attr)
             if isinstance(val, str) and val.startswith("/"):
-                # Allow /tmp
+                # Allow /tmp (e.g. pytest tmp dirs)
                 assert val.startswith("/tmp"), (
                     f"config.{attr} contains a hardcoded absolute path: {val!r}"
                 )
