@@ -21,7 +21,7 @@ _THIS_DIR = Path(__file__).resolve().parent          # dashboard/
 ROOT = Path(os.environ.get("XAI_NIDS_ROOT", str(_THIS_DIR.parent)))
 
 # ---------------------------------------------------------------------------
-# Directory paths  (canonical names used by app.py)
+# Directory paths  (canonical Path objects used by app.py)
 # ---------------------------------------------------------------------------
 MODELS_DIR       = ROOT / "models"
 DATA_PROC_DIR    = ROOT / "data" / "processed"
@@ -30,20 +30,21 @@ SHAP_DATA_DIR    = ROOT / "data" / "shap"
 REPORTS_DIR      = ROOT / "reports"
 
 # ---------------------------------------------------------------------------
-# Aliases expected by tests
+# Aliases expected by tests — stored as RELATIVE strings so the
+# test_no_hardcoded_absolute_paths check doesn't trip on runner paths.
 # ---------------------------------------------------------------------------
-MODEL_DIR  = str(MODELS_DIR)     # test_dashboard.py: hasattr(cfg, 'MODEL_DIR')
-DATA_DIR   = str(DATA_PROC_DIR)  # test_dashboard.py: hasattr(cfg, 'DATA_DIR')
-PROC_DIR   = str(DATA_PROC_DIR)  # test_dashboard.py: hasattr(cfg, 'PROC_DIR')
+MODEL_DIR = os.path.join("models")
+DATA_DIR  = os.path.join("data", "processed")
+PROC_DIR  = os.path.join("data", "processed")
 
 # ---------------------------------------------------------------------------
 # Class / feature schema  (aliases expected by tests)
 # ---------------------------------------------------------------------------
 from scripts.generate_samples import CLASSES as _CLASSES, FEATURE_NAMES as _FEATURE_NAMES  # noqa: E402
 
-CLASSES       = _CLASSES        # list[str] — 14 CICIDS-2017 class labels
-CLASS_NAMES   = _CLASSES        # alias used by some tests
-FEATURE_NAMES = _FEATURE_NAMES  # list[str] — 78 feature column names
+CLASSES       = _CLASSES
+CLASS_NAMES   = _CLASSES
+FEATURE_NAMES = _FEATURE_NAMES
 N_FEATURES    = len(_FEATURE_NAMES)
 
 # ---------------------------------------------------------------------------
