@@ -3,20 +3,26 @@
 max-line-length = 120
 
 # ── Ignored rules ───────────────────────────────────────────────────────────────────
-# E501  line too long          (covered by max-line-length)
-# W503  line break before binary operator  (conflicts with Black)
-# E302  expected 2 blank lines (relaxed for research code)
-# E303  too many blank lines   (relaxed)
-# E231  missing whitespace after ','  (false positives in type hints)
+# E501  line too long             (covered by max-line-length)
+# W503  line break before binary  (conflicts with Black)
+# E302  expected 2 blank lines    (relaxed for research code)
+# E303  too many blank lines      (relaxed)
+# E231  missing whitespace after ',' (false positives in type hints)
 # W291  trailing whitespace
 # W293  whitespace before ':'
-# E711  comparison to None     (pandas idiom uses ==)
+# E711  comparison to None        (pandas idiom uses ==)
 # E712  comparison to True/False
 # W504  line break after binary operator
-# E741  ambiguous variable name (l, O, I — used in ML formulas)
+# E741  ambiguous variable name   (l, O, I — used in ML formulas)
 # E401  multiple imports on one line
-# C901  function is too complex (ML pipelines are inherently complex)
-ignore = E501,W503,E302,E303,E231,W291,W293,E711,E712,W504,E741,E401,C901
+# C901  function is too complex   (ML pipelines are inherently complex)
+# ── Cosmetic alignment rules (aligned assignment blocks are intentional) ──────────
+# E221  multiple spaces before operator  (aligned = blocks for readability)
+# E241  multiple spaces after ','        (aligned dict/list literals)
+# E226  missing whitespace around arithmetic operator
+# E203  whitespace before ':'            (numpy slice style: arr[x :])
+# E702  multiple statements on one line  (occasional ; for compact init)
+ignore = E501,W503,E302,E303,E231,W291,W293,E711,E712,W504,E741,E401,C901,E221,E241,E226,E203,E702
 
 # ── Excluded paths ───────────────────────────────────────────────────────────────────
 exclude =
@@ -40,11 +46,13 @@ exclude =
 # ── Per-file overrides ─────────────────────────────────────────────────────────────────
 per-file-ignores =
     # Scripts: allow top-level imports anywhere, unused imports for re-export
-    scripts/*.py: E402,F401,F811
+    scripts/*.py: E402,F401,F811,F841
     # Tests: allow unused imports, redefinition of fixtures, assert style
     tests/*.py: E402,F401,F811,S101
     # Src init files: allow unused imports (public API re-exports)
     src/**/__init__.py: F401
+    # Logger: Optional imported for type hints in older Python compat shims
+    src/utils/logger.py: F401
 
 # ── Max complexity ────────────────────────────────────────────────────────────────────
 max-complexity = 15
