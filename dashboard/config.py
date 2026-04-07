@@ -21,21 +21,36 @@ _THIS_DIR = Path(__file__).resolve().parent          # dashboard/
 ROOT = Path(os.environ.get("XAI_NIDS_ROOT", str(_THIS_DIR.parent)))
 
 # ---------------------------------------------------------------------------
-# Directory paths
+# Directory paths  (canonical names used by app.py)
 # ---------------------------------------------------------------------------
-MODELS_DIR      = ROOT / "models"
-DATA_PROC_DIR   = ROOT / "data" / "processed"
-DATA_SAMPLES_DIR= ROOT / "data" / "samples"
-SHAP_DATA_DIR   = ROOT / "data" / "shap"
-REPORTS_DIR     = ROOT / "reports"
+MODELS_DIR       = ROOT / "models"
+DATA_PROC_DIR    = ROOT / "data" / "processed"
+DATA_SAMPLES_DIR = ROOT / "data" / "samples"
+SHAP_DATA_DIR    = ROOT / "data" / "shap"
+REPORTS_DIR      = ROOT / "reports"
+
+# ---------------------------------------------------------------------------
+# Aliases expected by tests
+# ---------------------------------------------------------------------------
+MODEL_DIR  = str(MODELS_DIR)     # test_dashboard.py: hasattr(cfg, 'MODEL_DIR')
+DATA_DIR   = str(DATA_PROC_DIR)  # test_dashboard.py: hasattr(cfg, 'DATA_DIR')
+PROC_DIR   = str(DATA_PROC_DIR)  # test_dashboard.py: hasattr(cfg, 'PROC_DIR')
+
+# ---------------------------------------------------------------------------
+# Class / feature schema  (aliases expected by tests)
+# ---------------------------------------------------------------------------
+from scripts.generate_samples import CLASSES as _CLASSES, FEATURE_NAMES as _FEATURE_NAMES  # noqa: E402
+
+CLASSES       = _CLASSES        # list[str] — 14 CICIDS-2017 class labels
+CLASS_NAMES   = _CLASSES        # alias used by some tests
+FEATURE_NAMES = _FEATURE_NAMES  # list[str] — 78 feature column names
+N_FEATURES    = len(_FEATURE_NAMES)
 
 # ---------------------------------------------------------------------------
 # Model artifact file paths
 # ---------------------------------------------------------------------------
 RF_MODEL_PATH    = MODELS_DIR / "random_forest.pkl"
 XGB_MODEL_PATH   = MODELS_DIR / "xgboost_model.pkl"
-# LSTM is stored as a tar.gz archive containing a Keras SavedModel.
-# Extract with tarfile before loading via tf.keras.models.load_model().
 LSTM_MODEL_PATH  = MODELS_DIR / "lstm_model.tar.gz"
 LSTM_EXTRACT_DIR = MODELS_DIR / "lstm_extracted"
 SCALER_PATH      = DATA_PROC_DIR / "scaler.pkl"
@@ -47,17 +62,17 @@ SUMMARY_PATH     = MODELS_DIR / "metrics_summary.json"
 # ---------------------------------------------------------------------------
 # Dashboard defaults
 # ---------------------------------------------------------------------------
-DEFAULT_MODEL        = "Random Forest"
-DEFAULT_SPEED        = 3       # flows per batch
-DEFAULT_DELAY        = 0.8     # seconds between batches
-DEFAULT_CONF_THRESHOLD = 0.5   # minimum confidence to raise alert
-MAX_HISTORY          = 500     # cap on in-memory alert history
-LIME_SAMPLES         = 3000    # neighbourhood samples for LIME
-LIME_TOP_FEATURES    = 10      # features to show in LIME explanation
-SHAP_BACKGROUND      = 100     # background samples for DeepExplainer
+DEFAULT_MODEL          = "Random Forest"
+DEFAULT_SPEED          = 3
+DEFAULT_DELAY          = 0.8
+DEFAULT_CONF_THRESHOLD = 0.5
+MAX_HISTORY            = 500
+LIME_SAMPLES           = 3000
+LIME_TOP_FEATURES      = 10
+SHAP_BACKGROUND        = 100
 
 # ---------------------------------------------------------------------------
-# UI colours (kept in sync with app.py CSS vars)
+# UI colours
 # ---------------------------------------------------------------------------
 ATTACK_COLORS: dict[str, str] = {
     "BENIGN":              "#39d353",

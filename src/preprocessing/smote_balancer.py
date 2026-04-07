@@ -63,7 +63,7 @@ def apply_smote(
         sampling_strategy=strategy,
         k_neighbors=k_neighbors,
         random_state=random_state,
-        n_jobs=-1,
+        # n_jobs removed: not supported by imblearn SMOTE
     )
     X_bal, y_bal = sm.fit_resample(X_train, y_train)
 

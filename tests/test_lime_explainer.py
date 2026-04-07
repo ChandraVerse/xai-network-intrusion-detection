@@ -35,45 +35,44 @@ class TestLIMEExplainerInit:
 
 
 class TestExplainInstance:
-    def test_returns_explanation(self, X_small, fitted_rf_small):
+    def _explain(self, X_small, fitted_rf_small, num_features=5, num_samples=200):
+        """Helper: explain instance[0], always using top_labels=1 to get label 0."""
         explainer = LIMEExplainer(training_data=X_small)
         result = explainer.explain_instance(
             instance=X_small[0],
             predict_fn=fitted_rf_small.predict_proba,
-            num_features=5,
-            num_samples=200,
+            num_features=num_features,
+            num_samples=num_samples,
+            top_labels=1,
         )
+        return explainer, result
+
+    def test_returns_explanation(self, X_small, fitted_rf_small):
+        _, result = self._explain(X_small, fitted_rf_small)
         assert result is not None
 
     def test_as_list_has_correct_length(self, X_small, fitted_rf_small):
-        explainer = LIMEExplainer(training_data=X_small)
-        result = explainer.explain_instance(
-            instance=X_small[0],
-            predict_fn=fitted_rf_small.predict_proba,
-            num_features=5,
-            num_samples=200,
-        )
-        feats = result.as_list()
+        _, result = self._explain(X_small, fitted_rf_small)
+        label = result.top_labels[0]
+        feats = result.as_list(label=label)
         assert 1 <= len(feats) <= 5
 
     def test_feature_weights_are_floats(self, X_small, fitted_rf_small):
-        explainer = LIMEExplainer(training_data=X_small)
-        result = explainer.explain_instance(
-            instance=X_small[0],
-            predict_fn=fitted_rf_small.predict_proba,
-            num_features=5,
-            num_samples=200,
-        )
-        for _, w in result.as_list():
+        _, result = self._explain(X_small, fitted_rf_small)
+        label = result.top_labels[0]
+        for _, w in result.as_list(label=label):
             assert isinstance(w, float)
 
     def test_different_instances_differ(self, X_small, fitted_rf_small):
         explainer = LIMEExplainer(training_data=X_small)
         e1 = explainer.explain_instance(X_small[0], fitted_rf_small.predict_proba,
-                                         num_features=5, num_samples=200)
+                                         num_features=5, num_samples=200, top_labels=1)
         e2 = explainer.explain_instance(X_small[1], fitted_rf_small.predict_proba,
-                                         num_features=5, num_samples=200)
-        assert e1.as_list() != e2.as_list() or X_small[0].tolist() == X_small[1].tolist()
+                                         num_features=5, num_samples=200, top_labels=1)
+        l1 = e1.top_labels[0]
+        l2 = e2.top_labels[0]
+        assert (e1.as_list(label=l1) != e2.as_list(label=l2)
+                or X_small[0].tolist() == X_small[1].tolist())
 
 
 class TestAsDict:
@@ -81,7 +80,7 @@ class TestAsDict:
         explainer = LIMEExplainer(training_data=X_small)
         exp = explainer.explain_instance(
             X_small[0], fitted_rf_small.predict_proba,
-            num_features=5, num_samples=200,
+            num_features=5, num_samples=200, top_labels=1,
         )
         result = explainer.as_dict(exp)
         for key in ("label", "label_name", "score", "local_pred", "features"):
@@ -91,7 +90,7 @@ class TestAsDict:
         explainer = LIMEExplainer(training_data=X_small)
         exp = explainer.explain_instance(
             X_small[0], fitted_rf_small.predict_proba,
-            num_features=5, num_samples=200,
+            num_features=5, num_samples=200, top_labels=1,
         )
         result = explainer.as_dict(exp)
         for item in result["features"]:
@@ -104,7 +103,7 @@ class TestPlotExplanation:
         explainer = LIMEExplainer(training_data=X_small)
         exp = explainer.explain_instance(
             X_small[0], fitted_rf_small.predict_proba,
-            num_features=5, num_samples=200,
+            num_features=5, num_samples=200, top_labels=1,
         )
         fig = explainer.plot_explanation(exp)
         assert isinstance(fig, plt.Figure)
