@@ -49,6 +49,7 @@ FEATURE_NAMES: list[str] = [
     "Down/Up Ratio", "Average Packet Size",
     "Avg Fwd Segment Size", "Avg Bwd Segment Size",
     "Fwd Header Length.1",
+    "Bwd Header Length.1",
     "Fwd Avg Bytes/Bulk", "Fwd Avg Packets/Bulk", "Fwd Avg Bulk Rate",
     "Bwd Avg Bytes/Bulk", "Bwd Avg Packets/Bulk", "Bwd Avg Bulk Rate",
     "Subflow Fwd Packets", "Subflow Fwd Bytes",
